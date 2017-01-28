@@ -1,9 +1,38 @@
+/* -*- coding: utf-8 -*- */
+
+/*
+Copyright 2016-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+Licensed under the Amazon Software License (the "License"). You may not use this file except in 
+compliance with the License. A copy of the License is located at
+
+    http://aws.amazon.com/asl/
+
+or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS, 
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific 
+language governing permissions and limitations under the License.
+*/
+
+/*
+Alexa Smart Home API Validation Package for Python.
+
+This module is used by Alexa Smart Home API third party (3P) Python developers to validate their 
+Lambda responses before sending them back to Alexa. If an error is found, an exception is thrown so 
+that the 3P can catch the error and do something about it, instead of sending it back to Alexa and 
+causing an error on the Alexa side.
+
+The validations are based on the current public Alexa Smart Home API reference:
+https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference
+
+*/
+
+
 /*
  * Various valid names and values constants
  */
  
 var VALID_DISCOVERY_REQUEST_NAMES = [
-    'DiscoverAppliancesRequest',
+    'DiscoverAppliancesRequest'
 ];
 var VALID_CONTROL_REQUEST_NAMES = [
     'TurnOnRequest',
@@ -13,12 +42,11 @@ var VALID_CONTROL_REQUEST_NAMES = [
     'DecrementTargetTemperatureRequest',
     'SetPercentageRequest',
     'IncrementPercentageRequest',
-    'DecrementPercentageRequest',
+    'DecrementPercentageRequest'
 ];
-var VALID_REQUEST_NAMES = VALID_DISCOVERY_REQUEST_NAMES.concat(VALID_CONTROL_REQUEST_NAMES);
-var VALID_DISCOVERY_RESPONSE_NAMES = [
-    'DiscoverAppliancesResponse',
-];
+var VALID_SYSTEM_REQUEST_NAMES = [ 'HealthCheckRequest' ]
+var VALID_REQUEST_NAMES = VALID_DISCOVERY_REQUEST_NAMES.concat(VALID_CONTROL_REQUEST_NAMES).concat(VALID_SYSTEM_REQUEST_NAMES);
+var VALID_DISCOVERY_RESPONSE_NAMES = [ 'DiscoverAppliancesResponse' ];
 var VALID_CONTROL_RESPONSE_NAMES = [
     'TurnOnConfirmation',
     'TurnOffConfirmation',
@@ -27,7 +55,7 @@ var VALID_CONTROL_RESPONSE_NAMES = [
     'DecrementTargetTemperatureConfirmation',
     'SetPercentageConfirmation',
     'IncrementPercentageConfirmation',
-    'DecrementPercentageConfirmation',
+    'DecrementPercentageConfirmation'
 ];
 var VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'ValueOutOfRangeError',
@@ -50,9 +78,11 @@ var VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'UnsupportedTargetError',
     'UnsupportedOperationError',
     'UnsupportedTargetSettingError',
-    'UnexpectedInformationReceivedError',
+    'UnexpectedInformationReceivedError'
 ];
-var VALID_RESPONSE_NAMES = VALID_DISCOVERY_RESPONSE_NAMES.concat(VALID_CONTROL_RESPONSE_NAMES).concat(VALID_CONTROL_ERROR_RESPONSE_NAMES)
+var VALID_SYSTEM_RESPONSE_NAMES = [ 'HealthCheckResponse' ];
+var VALID_RESPONSE_NAMES = VALID_DISCOVERY_RESPONSE_NAMES.concat(VALID_CONTROL_RESPONSE_NAMES).concat(VALID_CONTROL_ERROR_RESPONSE_NAMES).concat(VALID_SYSTEM_RESPONSE_NAMES);
+
 var VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES = [
     'SetTargetTemperatureConfirmation',
     'IncrementTargetTemperatureConfirmation',
@@ -64,7 +94,7 @@ var VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES = [
     'UnwillingToSetValueError',
     'RateLimitExceededError',
     'NotSupportedInCurrentModeError',
-    'UnexpectedInformationReceivedError',
+    'UnexpectedInformationReceivedError'
 ];
 var VALID_ACTIONS = [
     'setTargetTemperature',
@@ -74,19 +104,19 @@ var VALID_ACTIONS = [
     'incrementPercentage',
     'decrementPercentage',
     'turnOff',
-    'turnOn',
+    'turnOn'
 ];
 var VALID_TEMPERATURE_MODES = [
     'HEAT',
     'COOL',
-    'AUTO',
+    'AUTO'
 ];
 var VALID_CURRENT_DEVICE_MODES = [
     'HEAT',
     'COOL',
     'AUTO',
     'AWAY',
-    'OTHER',
+    'OTHER'
 ];
 var VALID_ERRORINFO_CODES = [
     'ThermostatIsOff'
@@ -94,11 +124,11 @@ var VALID_ERRORINFO_CODES = [
 var VALID_TIME_UNITS = [
     'MINUTE',
     'HOUR',
-    'DAY',
+    'DAY'
 ];
 var REQUIRED_RESPONSE_KEYS = [
     'header',
-    'payload',
+    'payload'
 ];
 var REQUIRED_HEADER_KEYS = [
     'namespace',
@@ -115,16 +145,31 @@ var REQUIRED_DISCOVERED_APPLIANCE_KEYS = [
     'friendlyDescription',
     'isReachable',
     'actions',
+    'additionalApplianceDetails'
 ];
 var MAX_DISCOVERED_APPLIANCES = 300;
 
 function validateContext(context){
+    /*Validate the Lambda context.
+
+	Currently, this method just checks to ensure that the Lambda timeout is set to 7 seconds or less.
+	This is to ensure that your Lambda times out and errors before Alexa times out (8 seconds), 
+	allowing you to see the timeout error. Otherwise, you could take > 8 seconds to respond and even
+	though you think you have responded properly and without error, Alexa actually timed out resulting
+	in an error to the user.
+	*/
     if(context.getRemainingTimeInMillis() > 7000){
         throw new Error(generateErrorMessage('Lambda', 'timeout must be 7 seconds or less', context));
     }
 }
 
 function validateResponse(request, response){
+    /*Validate the response to a request.
+
+	This is the main validation method to be called in your Lambda handler, just before you return
+	the response to Alexa. This method validates the request to ensure it is valid, and then dispatches
+	to specific response validation methods depending on the request namespace.
+	*/
     if (isEmpty(response)){
         throw new Error(generateErrorMessage('Response', 'response is missing', response));
     }
@@ -146,6 +191,11 @@ function validateResponse(request, response){
 }
 
 function validateDiscoveryResponse(request, response){
+    /*Validate the response to a DiscoverApplianceRequest request.
+
+	This method validates the response to a DiscoverApplianceRequest request, based on the API reference:
+	https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#discoverappliancesresponse
+	*/
     // check header
     validateResponseHeader(request, response);
 
@@ -183,8 +233,8 @@ function validateDiscoveryResponse(request, response){
             throw new Error(generateErrorMessage(response_name, 'applianceId cannot be exceed 256 characters', appliance)); 
         }
         // @TODO fix regex here
-        // if (!appliance.applianceId.match("^[a-zA-Z0-9_\-=#;:?@&]*$")){
-        //     throw new Error(generateErrorMessage(response_name, 'applianceId must be alphanumeric ' + 'or the following special characters: _-=#;:?@&', appliance));
+        // if (!appliance.applianceId.match("^[a-zA-Z0-9_\-=;:?@&]*$")){
+        //     throw new Error(generateErrorMessage(response_name, 'applianceId must be alphanumeric ' + 'or the following special characters: _-=;:?@&', appliance));
         // }
         if (isEmpty(appliance.manufacturerName)){
             throw new Error(generateErrorMessage(response_name, 'manufacturerName must not be empty', appliance)); 
@@ -449,8 +499,6 @@ function validateResponseHeader(request, response){
 function generateErrorMessage(title, message, data){
     return title + ' :: ' + message + ': ' + JSON.stringify(data);
 }
-
-// http://stackoverflow.com/questions/4994201/is-object-empty
 function isEmpty(obj) {
     // null and undefined are "empty"
     if (obj == null) return true;
