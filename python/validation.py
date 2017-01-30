@@ -159,6 +159,30 @@ def validateResponse(request,response):
     else:
         raise_value_error(generate_error_message('Request','request.header.namespace is invalid',request))
 
+def validateSystemResponse(request,response):
+	"""Validate the response to a Health Check request.
+
+	This method validates the response to a Health Check request, based on the API reference:
+	https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#health-check-messages
+	"""	
+
+    # Validate header
+    validateResponseHeader(request,response)
+    response_name = response['header']['name']
+
+    # Validate response payload
+    try:
+    	payload = response['payload']
+    except:
+        raise_value_error(generate_error_message(response_name,'payload is missing',response))
+
+    if payload is None: raise_value_error(generate_error_message(response_name,'payload is missing',payload))
+
+    # check payload
+    for required_key in ['description','isHealthy']:
+        if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
+        if is_empty_string(payload['description']): raise_value_error(generate_error_message(response_name,'payload.description must not be empty',payload))
+        if not isinstance(payload['isHealthy'],bool): raise_value_error(generate_error_message(response_name,'payload.isHealthy must be a boolean',payload))
 
 def validateDiscoveryResponse(request,response):
 	"""Validate the response to a DiscoverApplianceRequest request.
@@ -312,6 +336,8 @@ def validateResponseHeader(request,response):
     if request_name in VALID_DISCOVERY_REQUEST_NAMES:
         if header['namespace'] != 'Alexa.ConnectedHome.Discovery': raise_value_error(generate_error_message('Discovery Response','header.namespace must be Alexa.ConnectedHome.Discovery',header))
         if header['name'] not in VALID_DISCOVERY_RESPONSE_NAMES: raise_value_error(generate_error_message('Discovery Response','header.name is invalid',header))
+        correct_response_name = request_name.replace('Request','Response')
+        if header['name'] != correct_response_name: raise_value_error(generate_error_message('Discovery Response','header.name must be ' + correct_response_name + ' for ' + request_name,header))
 
     if request_name in VALID_CONTROL_REQUEST_NAMES:
         if header['namespace'] != 'Alexa.ConnectedHome.Control': raise_value_error(generate_error_message('Control Response','header.namespace must be Alexa.ConnectedHome.Control',header))
@@ -319,6 +345,12 @@ def validateResponseHeader(request,response):
         if header['name'] not in VALID_CONTROL_ERROR_RESPONSE_NAMES:
             correct_response_name = request_name.replace('Request','Confirmation')
             if header['name'] != correct_response_name: raise_value_error(generate_error_message('Control Response','header.name must be an error response name or ' + correct_response_name + ' for ' + request_name,header))
+	
+	if request_name in VALID_SYSTEM_REQUEST_NAMES:
+		if header['namespace'] != 'Alexa.ConnectedHome.System': raise_value_error(generate_error_message('System Response','header.namespace must be Alexa.ConnectedHome.System',header))
+		if header['name'] not in VALID_SYSTEM_RESPONSE_NAMES: raise_value_error(generate_error_message('System Response','header.name is invalid',header))
+		correct_response_name = request_name.replace('Request','Response')
+		if header['name'] != correct_response_name: raise_value_error(generate_error_message('System Response','header.name must be ' + correct_response_name + ' for ' + request_name,header))
     
     # check common header constraints
     if header['payloadVersion'] != '2': raise_value_error(generate_error_message(header['name'],'header.payloadVersion must be \'2\' (string)',header))
