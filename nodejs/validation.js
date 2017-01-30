@@ -185,11 +185,48 @@ function validateResponse(request, response){
     else if (request.header.namespace === 'Alexa.ConnectedHome.Control'){
         validateControlResponse(request, response);
     }
+    else if (request.header.namespace === 'Alexa.ConnectedHome.System'){
+        validateSystemResponse(request,response);
+    }
     else{
         throw new Error(generateErrorMessage('Request', 'request is invalid', request));
     }
 }
 
+function validateSystemResponse(request,response){
+	/*Validate the response to a Health Check request.
+
+	This method validates the response to a Health Check request, based on the API reference:
+	https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#health-check-messages
+	*/
+
+    //Validate header
+    validateResponseHeader(request,response);
+    var response_name = response.header.name;
+
+    // Validate response payload
+    try{
+    	payload = response.payload;
+    }
+    catch (err){
+        throw new Error(generateErrorMessage(response.header.name, 'payload is missing', payload));
+    }
+    if (!payload){
+         throw new Error(generateErrorMessage(response.header.name, 'payload is missing', payload));
+    }
+    //check payload
+    ['description','isHealthy'].forEach( function(required_key){
+        if (!required_key in payload){
+            throw new Error(generateErrorMessage(response_name,'payload.' + format(required_key) + ' is missing',payload));
+        }
+        if (isEmpty(payload.description)){
+            throw new Error(generateErrorMessage(response_name,'payload.description must not be empty',payload));
+        }
+        if (!payload.isHealthy instanceof boolean){
+            throw new Error(generateErrorMessage(response_name,'payload.isHealthy must be a boolean',payload));
+        } 
+    });  
+} 
 function validateDiscoveryResponse(request, response){
     /*Validate the response to a DiscoverApplianceRequest request.
 
