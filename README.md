@@ -15,14 +15,14 @@ We encourage all Smart Home API skill developers to use this package as a way to
 git clone https://github.com/alexa/alexa-smarthome-validation.git
 ```
 
-2. Add the file to your Lambda function package. Assume it is in the same directory as your Lambda function.
+Add the file to your Lambda function package. Assume it is in the same directory as your Lambda function.
 
-3. At the top of your Lambda function, add:
+At the top of your Lambda function, add:
 ```javascript
 var validator = require('validation');
 ```
 
-4. At the beginning of your Lambda handler function, add the context validation. For example:
+At the beginning of your Lambda handler function, add the context validation. For example:
 ```javascript
 exports.handler = function(request, context) {
 	try {
@@ -34,7 +34,7 @@ exports.handler = function(request, context) {
 	...
 ```
 
-5. Anytime you return a response, i.e. context.succeed(response), add a validation check in a try/catch block. For example:
+Anytime you return a response, i.e. context.succeed(response), add a validation check in a try/catch block. For example:
 ```javascript
 try {
     var response = {header, payload};
@@ -47,7 +47,6 @@ try {
 ```
 
 Note that if you already have a live skill and you want to be safe, just wrap the call to validator.validateResponse in a try/catch block. This allows you to log an error for your reference, while still returning a response from your Lambda. For example:
-
 ```javascript
 var response = {header, payload};
 try {
@@ -58,23 +57,23 @@ try {
 context.succeed(response);
 ```
 
-6. Test your skill with some bad responses to see if this works.
+Test your skill with some bad responses to see if this works.
 
 ## Python
 
-1. Get the validation.py file by cloning the project:
+Get the validation.py file by cloning the project:
 ```bash
 git clone https://github.com/alexa/alexa-smarthome-validation.git
 ```
 
-2. Add the file to your Lambda function package. Assume it is in the same directory as your Lambda function.
+Add the file to your Lambda function package. Assume it is in the same directory as your Lambda function.
 
-3. At the top of your Lambda function, add:
+At the top of your Lambda function, add:
 ```python
 from validation import validateResponse, validateContext
 ```
 
-4. At the beginning of your Lambda handler function, add the context validation. For example:
+At the beginning of your Lambda handler function, add the context validation. For example:
 ```python
 def lambda_handler(event,context):
 	try:
@@ -85,7 +84,7 @@ def lambda_handler(event,context):
     ...        
 ```
 
-5. Anytime you return a response, i.e. return(response), add a validation check in a try/catch block. For example:
+Anytime you return a response, i.e. return(response), add a validation check in a try/catch block. For example:
 ```python
 try:
     validateResponse(request,response)
@@ -96,7 +95,6 @@ except ValueError as error:
 ```
 
 Note that if you already have a live skill and you want to be safe, just wrap the call to validateResponse in a try/catch block. This allows you to log an error for your reference, while still returning a response from your Lambda. For example:
-
 ```python
 try:
     validateResponse(request,response)
@@ -105,4 +103,4 @@ except ValueError as error:
 return response
 ```
 
-6. Test your skill with some bad responses to see if this works.
+Test your skill with some bad responses to see if this works.
