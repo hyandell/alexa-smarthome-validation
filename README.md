@@ -1,8 +1,6 @@
 # Alexa Smart Home Skill API Validation Package
 
-This package provides modules in Node.js and Python that can be easily used in Lambda functions of Alexa Smart Home API skills to validate the responses before sending back to Alexa. The validation rules are based on the current Smart Home Skill API referenced here:
-
-	https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference
+This package provides modules in Node.js and Python that can be easily used in Lambda functions of Alexa Smart Home API skills to validate the responses before sending back to Alexa. The validation rules are based on the current [Smart Home Skill API reference](https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference).
 
 If a validation error is found, an exception is thrown by the Lambda function so that the skill developer can see those exceptions in CloudWatch and do something about them. Otherwise, although the Lambda function may have completed successfully, an error is sent back to Alexa, resulting in a failure for the Alexa user.
 
@@ -17,14 +15,14 @@ We encourage all Smart Home API skill developers to use this package as a way to
 git clone https://github.com/alexa/alexa-smarthome-validation.git
 ```
 
-1. Add the file to your Lambda function package. Assume it is in the same directory as your Lambda function.
+2. Add the file to your Lambda function package. Assume it is in the same directory as your Lambda function.
 
-1. At the top of your Lambda function, add:
+3. At the top of your Lambda function, add:
 ```javascript
 var validator = require('validation');
 ```
 
-1. At the beginning of your Lambda handler function, add the context validation. For example:
+4. At the beginning of your Lambda handler function, add the context validation. For example:
 ```javascript
 exports.handler = function(request, context) {
 	try {
@@ -36,7 +34,7 @@ exports.handler = function(request, context) {
 	...
 ```
 
-1. Anytime you return a response, i.e. context.succeed(response), add a validation check in a try/catch block. For example:
+5. Anytime you return a response, i.e. context.succeed(response), add a validation check in a try/catch block. For example:
 ```javascript
 try {
     var response = {header, payload};
@@ -60,7 +58,7 @@ try {
 context.succeed(response);
 ```
 
-1. Test your skill with some bad responses to see if this works.
+6. Test your skill with some bad responses to see if this works.
 
 ## Python
 
@@ -69,14 +67,14 @@ context.succeed(response);
 git clone https://github.com/alexa/alexa-smarthome-validation.git
 ```
 
-1. Add the file to your Lambda function package. Assume it is in the same directory as your Lambda function.
+2. Add the file to your Lambda function package. Assume it is in the same directory as your Lambda function.
 
-1. At the top of your Lambda function, add:
+3. At the top of your Lambda function, add:
 ```python
 from validation import validateResponse, validateContext
 ```
 
-1. At the beginning of your Lambda handler function, add the context validation. For example:
+4. At the beginning of your Lambda handler function, add the context validation. For example:
 ```python
 def lambda_handler(event,context):
 	try:
@@ -87,7 +85,7 @@ def lambda_handler(event,context):
     ...        
 ```
 
-1. Anytime you return a response, i.e. return(response), add a validation check in a try/catch block. For example:
+5. Anytime you return a response, i.e. return(response), add a validation check in a try/catch block. For example:
 ```python
 try:
     validateResponse(request,response)
@@ -107,4 +105,4 @@ except ValueError as error:
 return response
 ```
 
-1. Test your skill with some bad responses to see if this works.
+6. Test your skill with some bad responses to see if this works.
