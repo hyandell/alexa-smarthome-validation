@@ -13,9 +13,9 @@
 
 """Alexa Smart Home API Validation Package for Python.
 
-This module is used by Alexa Smart Home API third party (3P) Python developers to validate their 
-Lambda responses before sending them back to Alexa. If an error is found, an exception is thrown so 
-that the 3P can catch the error and do something about it, instead of sending it back to Alexa and 
+This module is used by Alexa Smart Home API third party (3P) developers to validate their Lambda 
+responses before sending them back to Alexa. If an error is found, an exception is thrown so that 
+the 3P can catch the error and do something about it, instead of sending it back to Alexa and 
 causing an error on the Alexa side.
 
 The validations are based on the current public Alexa Smart Home API reference:
@@ -26,10 +26,11 @@ import logging
 import re
 import sys
 
-
 """Various constants used in validation."""
 
-VALID_DISCOVERY_REQUEST_NAMES = ['DiscoverAppliancesRequest']
+VALID_DISCOVERY_REQUEST_NAMES = [
+    'DiscoverAppliancesRequest'
+]
 VALID_CONTROL_REQUEST_NAMES = [
     'TurnOnRequest',
     'TurnOffRequest',
@@ -38,12 +39,16 @@ VALID_CONTROL_REQUEST_NAMES = [
     'DecrementTargetTemperatureRequest',
     'SetPercentageRequest',
     'IncrementPercentageRequest',
-    'DecrementPercentageRequest',
-    ]
-VALID_SYSTEM_REQUEST_NAMES = ['HealthCheckRequest']
+    'DecrementPercentageRequest'
+]
+VALID_SYSTEM_REQUEST_NAMES = [
+    'HealthCheckRequest'
+]
 VALID_REQUEST_NAMES = VALID_DISCOVERY_REQUEST_NAMES + VALID_CONTROL_REQUEST_NAMES + VALID_SYSTEM_REQUEST_NAMES
 
-VALID_DISCOVERY_RESPONSE_NAMES = ['DiscoverAppliancesResponse']
+VALID_DISCOVERY_RESPONSE_NAMES = [
+    'DiscoverAppliancesResponse'
+]
 VALID_CONTROL_RESPONSE_NAMES = [
     'TurnOnConfirmation',
     'TurnOffConfirmation',
@@ -52,8 +57,8 @@ VALID_CONTROL_RESPONSE_NAMES = [
     'DecrementTargetTemperatureConfirmation',
     'SetPercentageConfirmation',
     'IncrementPercentageConfirmation',
-    'DecrementPercentageConfirmation',
-    ]
+    'DecrementPercentageConfirmation'
+]
 VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'ValueOutOfRangeError',
     'TargetOfflineError',
@@ -75,9 +80,11 @@ VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'UnsupportedTargetError',
     'UnsupportedOperationError',
     'UnsupportedTargetSettingError',
-    'UnexpectedInformationReceivedError',
-    ]
-VALID_SYSTEM_RESPONSE_NAMES = ['HealthCheckResponse']
+    'UnexpectedInformationReceivedError'
+]
+VALID_SYSTEM_RESPONSE_NAMES = [
+    'HealthCheckResponse'
+]
 VALID_RESPONSE_NAMES = VALID_DISCOVERY_RESPONSE_NAMES + VALID_CONTROL_RESPONSE_NAMES + VALID_CONTROL_ERROR_RESPONSE_NAMES + VALID_SYSTEM_RESPONSE_NAMES
 
 VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES = [
@@ -91,8 +98,8 @@ VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES = [
     'UnwillingToSetValueError',
     'RateLimitExceededError',
     'NotSupportedInCurrentModeError',
-    'UnexpectedInformationReceivedError',
-    ]
+    'UnexpectedInformationReceivedError'
+]
 VALID_ACTIONS = [
     'setTargetTemperature',
     'incrementTargetTemperature',
@@ -101,16 +108,51 @@ VALID_ACTIONS = [
     'incrementPercentage',
     'decrementPercentage',
     'turnOff',
-    'turnOn',
-    ]
-VALID_TEMPERATURE_MODES = ['HEAT','COOL','AUTO']
-VALID_CURRENT_DEVICE_MODES = ['HEAT','COOL','AUTO','AWAY','OTHER']
-VALID_ERROR_INFO_CODES = ['ThermostatIsOff']
-VALID_TIME_UNITS = ['MINUTE','HOUR','DAY']
+    'turnOn'
+]
+VALID_TEMPERATURE_MODES = [
+    'HEAT',
+    'COOL',
+    'AUTO'
+]
+VALID_CURRENT_DEVICE_MODES = [
+    'HEAT',
+    'COOL',
+    'AUTO',
+    'AWAY',
+    'OTHER'
+]
+VALID_ERROR_INFO_CODES = [
+    'ThermostatIsOff'
+]
+VALID_TIME_UNITS = [
+    'MINUTE',
+    'HOUR',
+    'DAY'
+]
+REQUIRED_HEADER_KEYS = [
+    'namespace',
+    'name',
+    'payloadVersion',
+    'messageId'
+]
+REQUIRED_RESPONSE_KEYS = [
+    'header',
+    'payload'
+]
+REQUIRED_DISCOVERED_APPLIANCE_KEYS = [
+    'applianceId',
+    'manufacturerName',
+    'modelName',
+    'version',
+    'friendlyName',
+    'friendlyDescription',
+    'isReachable',
+    'actions',
+    'additionalApplianceDetails'
+]
+MAX_DISCOVERED_APPLIANCES = 300
 
-REQUIRED_HEADER_KEYS = ['namespace','name','payloadVersion','messageId']
-REQUIRED_RESPONSE_KEYS = ['header','payload']
-REQUIRED_DISCOVERED_APPLIANCE_KEYS = ['applianceId','manufacturerName','modelName','version','friendlyName','friendlyDescription','isReachable','actions','additionalApplianceDetails']
 
 def validateContext(context):
 	"""Validate the Lambda context.
@@ -178,7 +220,6 @@ def validateSystemResponse(request,response):
 
     if payload is None: raise_value_error(generate_error_message(response_name,'payload is missing',payload))
 
-    # check payload
     for required_key in ['description','isHealthy']:
         if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
         if is_empty_string(payload['description']): raise_value_error(generate_error_message(response_name,'payload.description must not be empty',payload))
@@ -206,7 +247,7 @@ def validateDiscoveryResponse(request,response):
 
     if 'discoveredAppliances' not in payload: raise_value_error(generate_error_message(response_name,'payload.discoveredAppliances is missing',payload))
     if not isinstance(payload['discoveredAppliances'],list): raise_value_error(generate_error_message(response_name,'payload.discoveredAppliances must be a list',payload))
-    if len(payload['discoveredAppliances']) > 300: raise_value_error(generate_error_message(response_name,'payload.discoveredAppliances must not contain more than 300 appliances',payload))
+    if len(payload['discoveredAppliances']) > MAX_DISCOVERED_APPLIANCES: raise_value_error(generate_error_message(response_name,'payload.discoveredAppliances must not contain more than 300 appliances',payload))
 
     # Validate each discovered appliance
     for discoveredAppliance in payload['discoveredAppliances']:
@@ -240,25 +281,35 @@ def validateDiscoveryResponse(request,response):
 
 
 def validateControlResponse(request,response):
-    # check header
-    validateResponseHeader(request,response)
+    """Validate the response to a Control request.
 
-    payload = response['payload']
+    This method validates the response to a Control (e.g. turn on/off, set temperatures, etc.) request, based on the API reference (starting from):
+    https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#onoff-messages
+    """ 
+
+    # Validate header
+    validateResponseHeader(request,response)
     request_name = request['header']['name']
     response_name = response['header']['name']
 
-    # check if payload exists
-    if payload is None: raise_value_error(generate_error_message(response_name,'payload is missing',payload))
+    # Validate response payload
+    try:
+        payload = response['payload']
+    except:
+        raise_value_error(generate_error_message(response_name,'payload is missing',response))
 
-    # check empty payload responses
+    if payload is None: raise_value_error(generate_error_message(response_name,'payload is missing',payload))
+    if not isinstance(payload,dict): raise_value_error(generate_error_message(response_name,'payload must be a dict',payload))
+
+    # Validate non-empty control response payload
     if response_name not in VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES:
         if bool(payload): raise_value_error(generate_error_message(response_name,'payload must be empty',payload))
     else:
         if not bool(payload): raise_value_error(generate_error_message(response_name,'payload must not be empty',payload))
 
-    # check thermostat responses
+    # Validate thermostat control response payload
     if response_name in ['SetTargetTemperatureConfirmation','IncrementTargetTemperatureConfirmation','DecrementTargetTemperatureConfirmation']: 
-        # check payload
+        # Validate payload
         for required_key in ['targetTemperature','temperatureMode','previousState']:
             if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
         if 'value' not in payload['targetTemperature']: raise_value_error(generate_error_message(response_name,'payload.targetTemperature.value is missing',payload))
@@ -266,7 +317,7 @@ def validateControlResponse(request,response):
         if 'value' not in payload['temperatureMode']: raise_value_error(generate_error_message(response_name,'payload.temperatureMode.value is missing',payload))
         if payload['temperatureMode']['value'] not in VALID_TEMPERATURE_MODES: raise_value_error(generate_error_message(response_name,'payload.temperatureMode.value is invalid',payload))
 
-        # check payload.previousState
+        # Validate payload.previousState
         for required_key in ['targetTemperature','temperatureMode']:
             if required_key not in payload['previousState']: raise_value_error(generate_error_message(response_name,'payload.previousState.' + format(required_key) + ' is missing',payload))
         if 'value' not in payload['previousState']['targetTemperature']: raise_value_error(generate_error_message(response_name,'payload.previousState.targetTemperature.value is missing',payload))
@@ -274,7 +325,7 @@ def validateControlResponse(request,response):
         if 'value' not in payload['previousState']['temperatureMode']: raise_value_error(generate_error_message(response_name,'payload.previousState.temperatureMode.value is missing',payload))
         if payload['previousState']['temperatureMode']['value'] not in VALID_TEMPERATURE_MODES: raise_value_error(generate_error_message(response_name,'payload.previousState.temperatureMode.value is invalid',payload))
 
-    # check error responses
+    # Validate control error response payload
     if response_name == 'ValueOutOfRangeError':
         for required_key in ['minimumValue','maximumValue']:
             if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
@@ -319,20 +370,26 @@ def validateControlResponse(request,response):
 
 
 def validateResponseHeader(request,response):
+    """Validate the response header.
+
+    This method validates the header of the responses, based on the API reference:
+    https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#skill-adapter-directives
+    """ 
+
     request_name = request['header']['name']
     header = response['header']
 
-    # check if request_name is valid
+    # Validate if request_name is valid
     if request_name not in VALID_REQUEST_NAMES: raise_value_error(generate_error_message('Request','request name is invalid',request))
 
-    # check if header exists
+    # Validate if header exists
     if header is None: raise_value_error(generate_error_message('Response','response header is missing',response))
 
-    # check header required params
+    # Validate header required params
     for required_header_key in REQUIRED_HEADER_KEYS:
         if required_header_key not in header: raise_value_error(generate_error_message('Response','header.' + required_header_key + ' is required',header))
 
-    # check header namespace and name
+    # Validate header namespace and name
     if request_name in VALID_DISCOVERY_REQUEST_NAMES:
         if header['namespace'] != 'Alexa.ConnectedHome.Discovery': raise_value_error(generate_error_message('Discovery Response','header.namespace must be Alexa.ConnectedHome.Discovery',header))
         if header['name'] not in VALID_DISCOVERY_RESPONSE_NAMES: raise_value_error(generate_error_message('Discovery Response','header.name is invalid',header))
@@ -352,14 +409,15 @@ def validateResponseHeader(request,response):
 		correct_response_name = request_name.replace('Request','Response')
 		if header['name'] != correct_response_name: raise_value_error(generate_error_message('System Response','header.name must be ' + correct_response_name + ' for ' + request_name,header))
     
-    # check common header constraints
+    # Validate common header constraints
     if header['payloadVersion'] != '2': raise_value_error(generate_error_message(header['name'],'header.payloadVersion must be \'2\' (string)',header))
     if not re.match('^[a-zA-Z0-9\-]*$',header['messageId']): raise_value_error(generate_error_message(header['name'],'header.messageId must be specified in alphanumeric characters or - ',header))
     if is_empty_string(header['messageId']): raise_value_error(generate_error_message(header['name'],'header.messageId must not be empty',header))
     if len(header['messageId']) > 127: raise_value_error(generate_error_message(header['name'],'header.messageId must not exceed 127 characters',header))
 
 
-# utility functions
+"""Utility functions."""
+
 def is_number(s):
     try:
         float(s)

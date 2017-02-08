@@ -14,21 +14,19 @@ language governing permissions and limitations under the License.
 */
 
 /*
-Alexa Smart Home API Validation Package for Python.
+Alexa Smart Home API Validation Package for Node.js.
 
-This module is used by Alexa Smart Home API third party (3P) Python developers to validate their 
-Lambda responses before sending them back to Alexa. If an error is found, an exception is thrown so 
-that the 3P can catch the error and do something about it, instead of sending it back to Alexa and 
+This module is used by Alexa Smart Home API third party (3P) developers to validate their Lambda 
+responses before sending them back to Alexa. If an error is found, an exception is thrown so that 
+the 3P can catch the error and do something about it, instead of sending it back to Alexa and 
 causing an error on the Alexa side.
 
 The validations are based on the current public Alexa Smart Home API reference:
 https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference
-
 */
 
-
 /*
- * Various valid names and values constants
+ * Various constants used in validation.
  */
  
 var VALID_DISCOVERY_REQUEST_NAMES = [
@@ -44,9 +42,14 @@ var VALID_CONTROL_REQUEST_NAMES = [
     'IncrementPercentageRequest',
     'DecrementPercentageRequest'
 ];
-var VALID_SYSTEM_REQUEST_NAMES = [ 'HealthCheckRequest' ]
+var VALID_SYSTEM_REQUEST_NAMES = [
+    'HealthCheckRequest'
+];
 var VALID_REQUEST_NAMES = VALID_DISCOVERY_REQUEST_NAMES.concat(VALID_CONTROL_REQUEST_NAMES).concat(VALID_SYSTEM_REQUEST_NAMES);
-var VALID_DISCOVERY_RESPONSE_NAMES = [ 'DiscoverAppliancesResponse' ];
+
+var VALID_DISCOVERY_RESPONSE_NAMES = [
+    'DiscoverAppliancesResponse'
+];
 var VALID_CONTROL_RESPONSE_NAMES = [
     'TurnOnConfirmation',
     'TurnOffConfirmation',
@@ -80,7 +83,9 @@ var VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'UnsupportedTargetSettingError',
     'UnexpectedInformationReceivedError'
 ];
-var VALID_SYSTEM_RESPONSE_NAMES = [ 'HealthCheckResponse' ];
+var VALID_SYSTEM_RESPONSE_NAMES = [
+    'HealthCheckResponse'
+];
 var VALID_RESPONSE_NAMES = VALID_DISCOVERY_RESPONSE_NAMES.concat(VALID_CONTROL_RESPONSE_NAMES).concat(VALID_CONTROL_ERROR_RESPONSE_NAMES).concat(VALID_SYSTEM_RESPONSE_NAMES);
 
 var VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES = [
@@ -170,6 +175,14 @@ function validateResponse(request, response){
 	the response to Alexa. This method validates the request to ensure it is valid, and then dispatches
 	to specific response validation methods depending on the request namespace.
 	*/
+
+    // Validate request
+    // @TODO: add additional validations for request, see validation.py starting line 179
+    if (isEmpty(request)){
+        throw new Error(generateErrorMessage('Request', 'request is missing', request));
+    }
+
+    // Validate response
     if (isEmpty(response)){
         throw new Error(generateErrorMessage('Response', 'response is missing', response));
     }
@@ -214,7 +227,7 @@ function validateSystemResponse(request,response){
     if (!payload){
          throw new Error(generateErrorMessage(response.header.name, 'payload is missing', payload));
     }
-    //check payload
+
     ['description','isHealthy'].forEach( function(required_key){
         if (!required_key in payload){
             throw new Error(generateErrorMessage(response_name,'payload.' + format(required_key) + ' is missing',payload));
@@ -233,18 +246,18 @@ function validateDiscoveryResponse(request, response){
 	This method validates the response to a DiscoverApplianceRequest request, based on the API reference:
 	https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#discoverappliancesresponse
 	*/
-    // check header
+
+    // Validate header
     validateResponseHeader(request, response);
 
     var payload = response.payload;
     var response_name = response.header.name;
 
-    // check if payload exists
+    // Validate response payload
     if (isEmpty(payload)){
         throw new Error(generateErrorMessage(response.header.name, 'payload is missing', payload));
     }
 
-    // check payload required params
     if (!('discoveredAppliances' in payload)){
         throw new Error(generateErrorMessage(response_name, 'payload.discoveredAppliances is missing', payload));
     }
@@ -321,19 +334,25 @@ function validateDiscoveryResponse(request, response){
 }
 
 function validateControlResponse(request, response){
-    // check header
+    /*Validate the response to a Control request.
+
+    This method validates the response to a Control (e.g. turn on/off, set temperatures, etc.) request, based on the API reference (starting from):
+    https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#onoff-messages
+    */ 
+
+    // Validate header
     validateResponseHeader(request, response);
     
     var payload = response.payload;
     var request_name = request.header.name;
     var response_name = response.header.name;
 
-    // check if header exists
-    if(payload == null){
+    // Validate response payload
+    if (payload == null){
         throw new Error(generateErrorMessage(response_name, 'payload is missing', payload));
     }
 
-    // check empty payload responses    
+    // Validate non-empty control response payload
     if (isInArray(VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES,response_name)){
         if (isEmpty(payload)){
             throw new Error(generateErrorMessage(response_name, 'payload cannot be empty', payload))
@@ -345,9 +364,9 @@ function validateControlResponse(request, response){
         }
     }
 
-    // check thermostat responses
+    // Validate thermostat control response payload
     if (isInArray(['SetTargetTemperatureRequest','IncrementTargetTemperatureRequest','DecrementTargetTemperatureRequest'], request_name)){
-        // check payload
+        // Validate payload
         ['targetTemperature','temperatureMode','previousState'].forEach( function(key){
             if (!(key in payload)){
                 throw new Error(generateErrorMessage(response_name, 'payload.' + key + ' is missing', payload));
@@ -365,7 +384,7 @@ function validateControlResponse(request, response){
                 throw new Error(generateErrorMessage(response_name,'payload.temperatureMode.value is invalid', payload));
             }
             
-            // check payload.previousState
+            // Validate payload.previousState
             ['targetTemperature','temperatureMode'].forEach( function(key){
                 if (!(key in payload.previousState)){
                     throw new Error(generateErrorMessage(response_name, 'payload.previousState.' + key + ' is missing', payload));
@@ -386,7 +405,7 @@ function validateControlResponse(request, response){
         });
     }    
 
-    // check error responses
+    // Validate control error response payload
     if (response_name === 'ValueOutOfRangeError'){
         ['minimumValue','maximumValue'].forEach(function(key){
             if (!(key in payload)){
@@ -470,27 +489,33 @@ function validateControlResponse(request, response){
 }
 
 function validateResponseHeader(request, response){
+    /*Validate the response header.
+
+    This method validates the header of the responses, based on the API reference:
+    https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#skill-adapter-directives
+    */
+
     var request_name = request.header.name;
     var header = response.header;
 
-    // check if request_name is valid
+    // Validate if request_name is valid
     if (!isInArray(VALID_REQUEST_NAMES,request_name)){
         throw new Error(generateErrorMessage('Request', 'request name is invalid', request));
     }
     
-    // check if header exists
+    // Validate if header exists
     if (isEmpty(header)){
         throw new Error(generateErrorMessage('Response', 'header is missing', response));
     }
 
-    // check header required params
+    // Validate header required params
     REQUIRED_HEADER_KEYS.forEach( function(required_header_key){
         if (!(required_header_key in header)){
             throw new Error(generateErrorMessage('Response', 'header.' + required_header_key + ' is required', header));
         }
     });
 
-    // check header namespace and name
+    // Validate header namespace and name
     if (isInArray(VALID_DISCOVERY_REQUEST_NAMES,request_name)){
         if (!(header.namespace === 'Alexa.ConnectedHome.Discovery')){
             throw new Error(generateErrorMessage('Discovery Response', 'header.namespace must be Alexa.ConnectedHome.Discovery', header));
@@ -514,7 +539,7 @@ function validateResponseHeader(request, response){
         }
     }
 
-    // check common header constraints
+    // Validate common header constraints
     if (!(header.payloadVersion === "2")){
         throw new Error(generateErrorMessage(header.name, 'header.payloadVersion must be "2"', header));
     }
@@ -530,12 +555,13 @@ function validateResponseHeader(request, response){
 }
 
 /*
- * Utility functions
+ * Utility functions.
  */
 
 function generateErrorMessage(title, message, data){
     return title + ' :: ' + message + ': ' + JSON.stringify(data);
 }
+
 function isEmpty(obj) {
     // null and undefined are "empty"
     if (obj == null) return true;
