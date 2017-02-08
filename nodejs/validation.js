@@ -177,14 +177,25 @@ function validateResponse(request, response){
 	*/
 
     // Validate request
-    // @TODO: add additional validations for request, see validation.py starting line 179
     if (isEmpty(request)){
         throw new Error(generateErrorMessage('Request', 'request is missing', request));
     }
-
+    if (!request instanceof Array){
+        throw new Error(generateErrorMessage('Request','request must be a dict',request));
+    }
+    try{
+        requestNamespace = request.header.namespace;
+    }
+    catch(err){
+        throw new Error(generateErrorMessage('Request','request is invalid',request));
+    }
+    	
     // Validate response
     if (isEmpty(response)){
         throw new Error(generateErrorMessage('Response', 'response is missing', response));
+    }
+    if (!response instanceof Array){
+        throw new Error(generateErrorMessage('Response','request must be a dict',request));
     }
     REQUIRED_RESPONSE_KEYS.forEach( function(required_key){
         if(!(required_key in response)){
@@ -282,10 +293,9 @@ function validateDiscoveryResponse(request, response){
         if (appliance.applianceId.length > 256){
             throw new Error(generateErrorMessage(response_name, 'applianceId cannot be exceed 256 characters', appliance)); 
         }
-        // @TODO fix regex here
-        // if (!appliance.applianceId.match("^[a-zA-Z0-9_\-=;:?@&]*$")){
-        //     throw new Error(generateErrorMessage(response_name, 'applianceId must be alphanumeric ' + 'or the following special characters: _-=;:?@&', appliance));
-        // }
+        if (!appliance.applianceId.match("^[a-zA-Z0-9_\\-=;:?@&]*$")){
+             throw new Error(generateErrorMessage(response_name, 'applianceId must be alphanumeric ' + 'or the following special characters: _-=;:?@&', appliance));
+        }
         if (isEmpty(appliance.manufacturerName)){
             throw new Error(generateErrorMessage(response_name, 'manufacturerName must not be empty', appliance)); 
         }
@@ -327,9 +337,11 @@ function validateDiscoveryResponse(request, response){
                 throw new Error(generateErrorMessage(response_name, JSON.stringify(action) + ' is not an allowed action', appliance)); 
             }
         });
-        // @TODO add check for total size of additionalApplianceDetails must not exceed 5000 bytes, based on following Python code:
-        // if discoveredAppliance['additionalApplianceDetails'] is not None:
-        //     if sys.getsizeof(discoveredAppliance['additionalApplianceDetails']) > 5000: raise_value_error(generate_error_message(response_name,'additionalApplianceDetails must not exceed 5000 bytes',discoveredAppliance))
+        if (appliance.additionalApplianceDetails != null){
+            if (Buffer.byteLength(appliance.additionalApplianceDetails, 'utf8') > 5000){
+                throw new Error(generateErrorMessage(response_name,'additionalApplianceDetails must not exceed 5000 bytes',discoveredAppliance));
+            } 
+        }
     });
 }
 
