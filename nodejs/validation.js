@@ -323,6 +323,12 @@ function validateDiscoveryResponse(request, response){
         if (!appliance.friendlyName.match("^[a-zA-Z0-9 ]*$")){
             throw new Error(generateErrorMessage(response_name, 'friendlyName cannot contain punctuation or special characters', appliance)); 
         }
+        if (isEmpty(appliance.friendlyDescription)){
+            throw new Error(generateErrorMessage(response_name, 'friendlyDescription cannot be empty', appliance)); 
+        }
+        if (appliance.friendlyDescription.length > 128){
+            throw new Error(generateErrorMessage(response_name, 'friendlyDescription cannot exceed 128 characters', appliance)); 
+        }
         if (!(appliance.isReachable instanceof Boolean || typeof appliance.isReachable === 'boolean')){
             throw new Error(generateErrorMessage(response_name, 'isReachable must be a boolean', appliance)); 
         }
