@@ -39,12 +39,16 @@ VALID_CONTROL_REQUEST_NAMES = [
     'DecrementTargetTemperatureRequest',
     'SetPercentageRequest',
     'IncrementPercentageRequest',
-    'DecrementPercentageRequest'
+    'DecrementPercentageRequest',
+    'SetLockStateRequest'
+]
+VALID_QUERY_REQUEST_NAMES = [
+    'GetLockStateRequest'
 ]
 VALID_SYSTEM_REQUEST_NAMES = [
     'HealthCheckRequest'
 ]
-VALID_REQUEST_NAMES = VALID_DISCOVERY_REQUEST_NAMES + VALID_CONTROL_REQUEST_NAMES + VALID_SYSTEM_REQUEST_NAMES
+VALID_REQUEST_NAMES = VALID_DISCOVERY_REQUEST_NAMES + VALID_QUERY_REQUEST_NAMES + VALID_CONTROL_REQUEST_NAMES + VALID_SYSTEM_REQUEST_NAMES
 
 VALID_DISCOVERY_RESPONSE_NAMES = [
     'DiscoverAppliancesResponse'
@@ -57,7 +61,8 @@ VALID_CONTROL_RESPONSE_NAMES = [
     'DecrementTargetTemperatureConfirmation',
     'SetPercentageConfirmation',
     'IncrementPercentageConfirmation',
-    'DecrementPercentageConfirmation'
+    'DecrementPercentageConfirmation',
+    'SetLockStateConfirmation'
 ]
 VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'ValueOutOfRangeError',
@@ -72,6 +77,8 @@ VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'TargetBridgeFirmwareOutdatedError',
     'TargetHardwareMalfunctionError',
     'TargetBridgeHardwareMalfunctionError',
+    'UnableToGetValueError',
+    'UnableToSetValueError',
     'UnwillingToSetValueError',
     'RateLimitExceededError',
     'NotSupportedInCurrentModeError',
@@ -82,15 +89,20 @@ VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'UnsupportedTargetSettingError',
     'UnexpectedInformationReceivedError'
 ]
+VALID_QUERY_RESPONSE_NAMES = [
+    'GetLockStateResponse'
+]
 VALID_SYSTEM_RESPONSE_NAMES = [
     'HealthCheckResponse'
 ]
-VALID_RESPONSE_NAMES = VALID_DISCOVERY_RESPONSE_NAMES + VALID_CONTROL_RESPONSE_NAMES + VALID_CONTROL_ERROR_RESPONSE_NAMES + VALID_SYSTEM_RESPONSE_NAMES
+VALID_RESPONSE_NAMES = VALID_DISCOVERY_RESPONSE_NAMES + VALID_CONTROL_RESPONSE_NAMES + VALID_CONTROL_ERROR_RESPONSE_NAMES + VALID_QUERY_RESPONSE_NAMES + VALID_SYSTEM_RESPONSE_NAMES
 
 VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES = [
     'SetTargetTemperatureConfirmation',
     'IncrementTargetTemperatureConfirmation',
     'DecrementTargetTemperatureConfirmation',
+    'SetLockStateConfirmation',
+    'GetLockStateResponse',
     'ValueOutOfRangeError',
     'DependentServiceUnavailableError',
     'TargetFirmwareOutdatedError',
@@ -101,12 +113,14 @@ VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES = [
     'UnexpectedInformationReceivedError'
 ]
 VALID_ACTIONS = [
-    'setTargetTemperature',
-    'incrementTargetTemperature',
-    'decrementTargetTemperature',
-    'setPercentage',
-    'incrementPercentage',
     'decrementPercentage',
+    'decrementTargetTemperature',
+    'getLockState',
+    'incrementPercentage',
+    'incrementTargetTemperature',
+    'setLockState',
+    'setPercentage',
+    'setTargetTemperature',
     'turnOff',
     'turnOn'
 ]
@@ -122,13 +136,26 @@ VALID_CURRENT_DEVICE_MODES = [
     'AWAY',
     'OTHER'
 ]
-VALID_ERROR_INFO_CODES = [
+VALID_UNABLE_ERROR_INFO_CODES = [
+    'DEVICE_AJAR',
+    'DEVICE_BUSY',
+    'DEVICE_JAMMED',
+    'DEVICE_OVERHEATED',
+    'HARDWARE_FAILURE',
+    'LOW_BATTERY',
+    'NOT_CALIBRATED'
+]
+VALID_UNWILLING_ERROR_INFO_CODES = [
     'ThermostatIsOff'
 ]
 VALID_TIME_UNITS = [
     'MINUTE',
     'HOUR',
     'DAY'
+]
+VALID_LOCK_STATES = [
+    'LOCKED',
+    'UNLOCKED'
 ]
 REQUIRED_HEADER_KEYS = [
     'namespace',
@@ -155,34 +182,34 @@ MAX_DISCOVERED_APPLIANCES = 300
 
 
 def validateContext(context):
-	"""Validate the Lambda context.
+    """Validate the Lambda context.
 
-	Currently, this method just checks to ensure that the Lambda timeout is set to 7 seconds or less.
-	This is to ensure that your Lambda times out and errors before Alexa times out (8 seconds), 
-	allowing you to see the timeout error. Otherwise, you could take > 8 seconds to respond and even
-	though you think you have responded properly and without error, Alexa actually timed out resulting
-	in an error to the user.
-	"""
+    Currently, this method just checks to ensure that the Lambda timeout is set to 7 seconds or less.
+    This is to ensure that your Lambda times out and errors before Alexa times out (8 seconds), 
+    allowing you to see the timeout error. Otherwise, you could take > 8 seconds to respond and even
+    though you think you have responded properly and without error, Alexa actually timed out resulting
+    in an error to the user.
+    """
 
     if context.get_remaining_time_in_millis() > 7000: raise_value_error(generate_error_message('Lambda','timeout must be 7 seconds or less',context))
 
 
 def validateResponse(request,response):
-	"""Validate the response to a request.
+    """Validate the response to a request.
 
-	This is the main validation method to be called in your Lambda handler, just before you return
-	the response to Alexa. This method validates the request to ensure it is valid, and then dispatches
-	to specific response validation methods depending on the request namespace.
-	"""
+    This is the main validation method to be called in your Lambda handler, just before you return
+    the response to Alexa. This method validates the request to ensure it is valid, and then dispatches
+    to specific response validation methods depending on the request namespace.
+    """
 
-	# Validate request
+    # Validate request
     if request is None: raise_value_error(generate_error_message('Request','request is missing',request))
     if not bool(request): raise_value_error(generate_error_message('Request','request must not be empty',request))
     if not isinstance(request,dict): raise_value_error(generate_error_message('Request','request must be a dict',request))
     try:
-    	request_namespace = request['header']['namespace']
+        request_namespace = request['header']['namespace']
     except:
-    	raise_value_error(generate_error_message('Request','request is invalid',request))
+        raise_value_error(generate_error_message('Request','request is invalid',request))
 
     # Validate response
     if response is None: raise_value_error(generate_error_message('Response','response is missing',response))
@@ -196,17 +223,19 @@ def validateResponse(request,response):
         validateDiscoveryResponse(request,response)
     elif request_namespace == 'Alexa.ConnectedHome.Control':
         validateControlResponse(request,response)
+    elif request_namespace == 'Alexa.ConnectedHome.Query':
+        validateQueryResponse(request,response)
     elif request_namespace == 'Alexa.ConnectedHome.System':
-    	validateSystemResponse(request,response)
+        validateSystemResponse(request,response)
     else:
         raise_value_error(generate_error_message('Request','request.header.namespace is invalid',request))
 
 def validateSystemResponse(request,response):
-	"""Validate the response to a Health Check request.
+    """Validate the response to a Health Check request.
 
-	This method validates the response to a Health Check request, based on the API reference:
-	https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#health-check-messages
-	"""	
+    This method validates the response to a Health Check request, based on the API reference:
+    https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#health-check-messages
+    """ 
 
     # Validate header
     validateResponseHeader(request,response)
@@ -214,7 +243,7 @@ def validateSystemResponse(request,response):
 
     # Validate response payload
     try:
-    	payload = response['payload']
+        payload = response['payload']
     except:
         raise_value_error(generate_error_message(response_name,'payload is missing',response))
 
@@ -226,11 +255,11 @@ def validateSystemResponse(request,response):
         if not isinstance(payload['isHealthy'],bool): raise_value_error(generate_error_message(response_name,'payload.isHealthy must be a boolean',payload))
 
 def validateDiscoveryResponse(request,response):
-	"""Validate the response to a DiscoverApplianceRequest request.
+    """Validate the response to a DiscoverApplianceRequest request.
 
-	This method validates the response to a DiscoverApplianceRequest request, based on the API reference:
-	https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#discoverappliancesresponse
-	"""	
+    This method validates the response to a DiscoverApplianceRequest request, based on the API reference:
+    https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#discoverappliancesresponse
+    """ 
 
     # Validate header
     validateResponseHeader(request,response)
@@ -238,7 +267,7 @@ def validateDiscoveryResponse(request,response):
 
     # Validate response payload
     try:
-    	payload = response['payload']
+        payload = response['payload']
     except:
         raise_value_error(generate_error_message(response_name,'payload is missing',response))
 
@@ -325,6 +354,12 @@ def validateControlResponse(request,response):
         if 'value' not in payload['previousState']['temperatureMode']: raise_value_error(generate_error_message(response_name,'payload.previousState.temperatureMode.value is missing',payload))
         if payload['previousState']['temperatureMode']['value'] not in VALID_TEMPERATURE_MODES: raise_value_error(generate_error_message(response_name,'payload.previousState.temperatureMode.value is invalid',payload))
 
+    # Validate lock control response payload
+    if response_name in ['SetLockStateRequest']:
+        for required_key in ['lockState']:
+            if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
+        if payload['lockState'] not in VALID_LOCK_STATES: raise_value_error(generate_error_message(response_name,'payload.lockState is invalid',payload))
+
     # Validate control error response payload
     if response_name == 'ValueOutOfRangeError':
         for required_key in ['minimumValue','maximumValue']:
@@ -342,19 +377,23 @@ def validateControlResponse(request,response):
             if is_empty_string(payload[required_key]): raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' must not be empty',payload))
             if not is_alphanumeric(payload[required_key]): raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' must be specified in alphanumeric characters',payload))
 
+    if response_name in ['UnableToSetValueError','UnableToGetValueError']:
+        required_key = 'errorInfo'
+        if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
+        for required_key in ['code','description']:
+            if required_key not in payload['errorInfo']: raise_value_error(generate_error_message(response_name,'payload.errorInfo' + format(required_key) + ' is missing',payload))
+        if payload['errorInfo']['code'] not in VALID_UNABLE_ERROR_INFO_CODES: raise_value_error(generate_error_message(response_name,'payload.errorInfo.code is invalid',payload))
+
     if response_name == 'UnwillingToSetValueError':
         required_key = 'errorInfo'
         if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
-
         for required_key in ['code','description']:
             if required_key not in payload['errorInfo']: raise_value_error(generate_error_message(response_name,'payload.errorInfo' + format(required_key) + ' is missing',payload))
-
-        if payload['errorInfo']['code'] not in VALID_ERROR_INFO_CODES: raise_value_error(generate_error_message(response_name,'payload.errorInfo.code is invalid',payload))
+        if payload['errorInfo']['code'] not in VALID_UNWILLING_ERROR_INFO_CODES: raise_value_error(generate_error_message(response_name,'payload.errorInfo.code is invalid',payload))
 
     if response_name == 'RateLimitExceededError':
         for required_key in ['rateLimit','timeUnit']:
             if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
-        
         if not payload['rateLimit'].isdigit(): raise_value_error(generate_error_message(response_name,'payload.rateLimit must be a positive integer',payload))
         if payload['timeUnit'] not in VALID_TIME_UNITS: raise_value_error(generate_error_message(response_name,'payload.timeUnit is invalid',payload))
 
@@ -367,6 +406,17 @@ def validateControlResponse(request,response):
         required_key = 'faultingParameter'
         if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
         if is_empty_string(payload[required_key]): raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' must not be empty',payload))
+
+def validateQueryResponse(request,response):
+    """Validate the response to a Query request.
+
+    This method validates the response to a Query (e.g. ambient temperature, lock state, etc.) request, based on the API reference (starting from):
+    https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#onoff-messages
+    """ 
+
+    # Validate header
+    validateResponseHeader(request,response)
+    response_name = response['header']['name']
 
 
 def validateResponseHeader(request,response):
@@ -402,12 +452,19 @@ def validateResponseHeader(request,response):
         if header['name'] not in VALID_CONTROL_ERROR_RESPONSE_NAMES:
             correct_response_name = request_name.replace('Request','Confirmation')
             if header['name'] != correct_response_name: raise_value_error(generate_error_message('Control Response','header.name must be an error response name or ' + correct_response_name + ' for ' + request_name,header))
-	
-	if request_name in VALID_SYSTEM_REQUEST_NAMES:
-		if header['namespace'] != 'Alexa.ConnectedHome.System': raise_value_error(generate_error_message('System Response','header.namespace must be Alexa.ConnectedHome.System',header))
-		if header['name'] not in VALID_SYSTEM_RESPONSE_NAMES: raise_value_error(generate_error_message('System Response','header.name is invalid',header))
-		correct_response_name = request_name.replace('Request','Response')
-		if header['name'] != correct_response_name: raise_value_error(generate_error_message('System Response','header.name must be ' + correct_response_name + ' for ' + request_name,header))
+
+    if request_name in VALID_QUERY_REQUEST_NAMES:
+        if header['namespace'] not in ['Alexa.ConnectedHome.Query','Alexa.ConnectedHome.Control']: raise_value_error(generate_error_message('Query Response','header.namespace must be Alexa.ConnectedHome.Query or Alexa.ConnectedHome.Control',header))
+        if header['name'] not in VALID_QUERY_RESPONSE_NAMES + VALID_CONTROL_ERROR_RESPONSE_NAMES: raise_value_error(generate_error_message('Query Response','header.name is invalid',header))
+        if header['name'] not in VALID_CONTROL_ERROR_RESPONSE_NAMES:
+            correct_response_name = request_name.replace('Request','Response')
+            if header['name'] != correct_response_name: raise_value_error(generate_error_message('Query Response','header.name must be an error response name or ' + correct_response_name + ' for ' + request_name,header))
+    
+    if request_name in VALID_SYSTEM_REQUEST_NAMES:
+        if header['namespace'] != 'Alexa.ConnectedHome.System': raise_value_error(generate_error_message('System Response','header.namespace must be Alexa.ConnectedHome.System',header))
+        if header['name'] not in VALID_SYSTEM_RESPONSE_NAMES: raise_value_error(generate_error_message('System Response','header.name is invalid',header))
+        correct_response_name = request_name.replace('Request','Response')
+        if header['name'] != correct_response_name: raise_value_error(generate_error_message('System Response','header.name must be ' + correct_response_name + ' for ' + request_name,header))
     
     # Validate common header constraints
     if header['payloadVersion'] != '2': raise_value_error(generate_error_message(header['name'],'header.payloadVersion must be \'2\' (string)',header))
