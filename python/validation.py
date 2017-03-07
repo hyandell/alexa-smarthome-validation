@@ -107,6 +107,8 @@ VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES = [
     'DependentServiceUnavailableError',
     'TargetFirmwareOutdatedError',
     'TargetBridgeFirmwareOutdatedError',
+    'UnableToGetValueError',
+    'UnableToSetValueError',
     'UnwillingToSetValueError',
     'RateLimitExceededError',
     'NotSupportedInCurrentModeError',
@@ -377,7 +379,7 @@ def validateControlResponse(request,response):
             if is_empty_string(payload[required_key]): raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' must not be empty',payload))
             if not is_alphanumeric(payload[required_key]): raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' must be specified in alphanumeric characters',payload))
 
-    if response_name in ['UnableToSetValueError','UnableToGetValueError']:
+    if response_name == 'UnableToSetValueError':
         required_key = 'errorInfo'
         if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
         for required_key in ['code','description']:
@@ -418,6 +420,21 @@ def validateQueryResponse(request,response):
     validateResponseHeader(request,response)
     response_name = response['header']['name']
 
+    # Validate response payload
+    try:
+        payload = response['payload']
+    except:
+        raise_value_error(generate_error_message(response_name,'payload is missing',response))
+
+    if payload is None: raise_value_error(generate_error_message(response_name,'payload is missing',payload))
+    if not isinstance(payload,dict): raise_value_error(generate_error_message(response_name,'payload must be a dict',payload))
+
+    # Validate non-empty control response payload
+    if response_name not in VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES:
+        if bool(payload): raise_value_error(generate_error_message(response_name,'payload must be empty',payload))
+    else:
+        if not bool(payload): raise_value_error(generate_error_message(response_name,'payload must not be empty',payload))
+
 
 def validateResponseHeader(request,response):
     """Validate the response header.
@@ -447,7 +464,7 @@ def validateResponseHeader(request,response):
         if header['name'] != correct_response_name: raise_value_error(generate_error_message('Discovery Response','header.name must be ' + correct_response_name + ' for ' + request_name,header))
 
     if request_name in VALID_CONTROL_REQUEST_NAMES:
-        if header['namespace'] != 'Alexa.ConnectedHome.Control': raise_value_error(generate_error_message('Control Response','header.namespace must be Alexa.ConnectedHome.Control',header))
+        if header['namespace'] not in ['Alexa.ConnectedHome.Query','Alexa.ConnectedHome.Control']: raise_value_error(generate_error_message('Control Response','header.namespace must be Alexa.ConnectedHome.Query or Alexa.ConnectedHome.Control',header))
         if header['name'] not in VALID_CONTROL_RESPONSE_NAMES + VALID_CONTROL_ERROR_RESPONSE_NAMES: raise_value_error(generate_error_message('Control Response','header.name is invalid',header))
         if header['name'] not in VALID_CONTROL_ERROR_RESPONSE_NAMES:
             correct_response_name = request_name.replace('Request','Confirmation')
