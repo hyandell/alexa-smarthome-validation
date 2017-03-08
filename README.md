@@ -6,6 +6,8 @@ If a validation error is found, an exception is thrown by the Lambda function so
 
 We encourage all Smart Home API skill developers to use this package as a way to ensure that their Lambda responses are always correct from the Alexa point of view, thereby improving operational excellence. As we add or modify the Smart Home Skill API, we will also update this package.
 
+Please provide feedback as well. If we've made a mistake, or if you have any questions about specific validations, please submit an issue here.
+
 # How to Get Started
 
 ## Node.js
