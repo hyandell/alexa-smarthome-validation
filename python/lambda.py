@@ -15,6 +15,7 @@ import logging
 import httplib
 import re
 import sys
+import time
 from validation import validateResponse, validateContext
 
 logger = logging.getLogger()
@@ -97,13 +98,15 @@ SAMPLE_APPLIANCES = [
         'manufacturerName': SAMPLE_MANUFACTURER,
         'modelName': 'Thermostat',
         'version': '1',
-        'friendlyName': 'Amazon Basement',
+        'friendlyName': 'Amazon Thermostat 1',
         'friendlyDescription': 'Thermostat in AUTO mode and reachable',
         'isReachable': True,
         'actions': [
             'setTargetTemperature',
             'incrementTargetTemperature',
             'decrementTargetTemperature',
+            'getTargetTemperature',
+            'getTemperatureReading',
         ],
         'additionalApplianceDetails': {}
     },
@@ -112,13 +115,15 @@ SAMPLE_APPLIANCES = [
         'manufacturerName': SAMPLE_MANUFACTURER,
         'modelName': 'Thermostat',
         'version': '1',
-        'friendlyName': 'Amazon Heater',
+        'friendlyName': 'Amazon Thermostat 2',
         'friendlyDescription': 'Thermostat in HEAT mode and reachable',
         'isReachable': True,
         'actions': [
             'setTargetTemperature',
             'incrementTargetTemperature',
             'decrementTargetTemperature',
+            'getTargetTemperature',
+            'getTemperatureReading',            
         ],
         'additionalApplianceDetails': {}
     },
@@ -127,16 +132,84 @@ SAMPLE_APPLIANCES = [
         'manufacturerName': SAMPLE_MANUFACTURER,
         'modelName': 'Thermostat',
         'version': '1',
-        'friendlyName': 'Amazon Cooler',
+        'friendlyName': 'Amazon Thermostat 3',
         'friendlyDescription': 'Thermostat in COOL mode and reachable',
         'isReachable': True,
         'actions': [
             'setTargetTemperature',
             'incrementTargetTemperature',
             'decrementTargetTemperature',
+            'getTargetTemperature',
+            'getTemperatureReading',            
         ],
         'additionalApplianceDetails': {}
     },
+    {
+        'applianceId': 'ThermostatEco-001',
+        'manufacturerName': SAMPLE_MANUFACTURER,
+        'modelName': 'Thermostat',
+        'version': '1',
+        'friendlyName': 'Amazon Thermostat 4',
+        'friendlyDescription': 'Thermostat in ECO mode and reachable',
+        'isReachable': True,
+        'actions': [
+            'setTargetTemperature',
+            'incrementTargetTemperature',
+            'decrementTargetTemperature',
+            'getTargetTemperature',
+            'getTemperatureReading',            
+        ],
+        'additionalApplianceDetails': {}
+    },
+    {
+        'applianceId': 'ThermostatCustom-001',
+        'manufacturerName': SAMPLE_MANUFACTURER,
+        'modelName': 'Thermostat',
+        'version': '1',
+        'friendlyName': 'Amazon Thermostat 5',
+        'friendlyDescription': 'Thermostat in CUSTOM mode and reachable',
+        'isReachable': True,
+        'actions': [
+            'setTargetTemperature',
+            'incrementTargetTemperature',
+            'decrementTargetTemperature',
+            'getTargetTemperature',
+            'getTemperatureReading',            
+        ],
+        'additionalApplianceDetails': {}
+    },
+    {
+        'applianceId': 'ThermostatOff-001',
+        'manufacturerName': SAMPLE_MANUFACTURER,
+        'modelName': 'Thermostat',
+        'version': '1',
+        'friendlyName': 'Amazon Thermostat 6',
+        'friendlyDescription': 'Thermostat in OFF mode and reachable',
+        'isReachable': True,
+        'actions': [
+            'setTargetTemperature',
+            'incrementTargetTemperature',
+            'decrementTargetTemperature',
+            'getTargetTemperature',
+            'getTemperatureReading',            
+        ],
+        'additionalApplianceDetails': {}
+    },
+    {
+        'applianceId': 'Lock-001',
+        'manufacturerName': SAMPLE_MANUFACTURER,
+        'modelName': 'Lock',
+        'version': '1',
+        'friendlyName': 'Amazon Lock',
+        'friendlyDescription': 'Lock that is functional and reachable',
+        'isReachable': True,
+        'actions': [
+            'setLockState',
+            'getLockState',
+        ],
+        'additionalApplianceDetails': {}
+    },
+
 ]
 
 def lambda_handler(event,context):
@@ -149,13 +222,13 @@ def lambda_handler(event,context):
         response = {}
         if event['header']['namespace'] == 'Alexa.ConnectedHome.Discovery':
             response = handleDiscovery(event,context)      
-        elif event['header']['namespace'] == 'Alexa.ConnectedHome.Control':
+        elif event['header']['namespace'] in ['Alexa.ConnectedHome.Control','Alexa.ConnectedHome.Query']:
             response = handleControl(event,context)
 
-        validateResponse(event,response)
-        
         logger.info('Response Header:{}'.format(response['header']))
         logger.info('Response Payload:{}'.format(response['payload']))
+
+        validateResponse(event,response)     
         
         return response
     except ValueError as error:
@@ -178,7 +251,6 @@ def handleControl(event,context):
     request_name = event['header']['name']
 
     response_name = ''
-    namespace = 'Alexa.ConnectedHome.Control'
 
     previous_temperature = 21.0
     minimum_temperature = 5.0
@@ -199,6 +271,47 @@ def handleControl(event,context):
         target_mode = 'COOL'
         response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature)
 
+    elif appliance_id == 'ThermostatEco-001':
+        previous_mode = 'ECO'
+        target_mode = 'ECO'
+        response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature)
+
+    elif appliance_id == 'ThermostatCustom-001':
+        previous_mode = 'CUSTOM'
+        target_mode = 'CUSTOM'
+        response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature)
+
+    elif appliance_id == 'ThermostatOff-001':
+        previous_mode = 'OFF'
+        target_mode = 'OFF'
+        response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature)
+
+    elif appliance_id == 'Lock-001':
+        if request_name == 'SetLockStateRequest':
+            response_name = 'SetLockStateConfirmation'
+            payload = {
+                'lockState': event['payload']['lockState']
+            }
+
+        elif request_name == 'GetLockStateRequest':
+            response_name = 'GetLockStateResponse'
+            payload = {
+                'lockState': 'UNLOCKED',
+                'applianceResponseTimestamp': getUTCTimestamp()
+            }
+
+
+        payload = {
+            'errorInfo': {
+                'code': 'LOW_BATTERY',
+                'description': 'The requested operation cannot be completed because the device has low battery.',
+            }
+        }
+        if response_name == 'UnableToGetValueError': header['namespace'] = 'Alexa.ConnectedHome.Query'
+
+        header = generateResponseHeader(event,response_name)
+        response = generateResponse(header,payload)
+
     elif isSampleErrorAppliance(appliance_id):
         response_name = appliance_id.replace('-001','')
         header = generateResponseHeader(event,response_name)
@@ -217,6 +330,14 @@ def handleControl(event,context):
                 'minimumFirmwareVersion': '17',
                 'currentFirmwareVersion': '6',
             }
+        elif response_name in ['UnableToGetValueError','UnableToSetValueError']:
+            payload = {
+                'errorInfo': {
+                    'code': 'LOW_BATTERY',
+                    'description': 'The requested operation cannot be completed because the device has low battery.',
+                }
+            }
+            if response_name == 'UnableToGetValueError': header['namespace'] = 'Alexa.ConnectedHome.Query'
         elif response_name == 'UnwillingToSetValueError':
             payload = {
                 'errorInfo': {
@@ -329,6 +450,8 @@ def generateSampleErrorAppliances():
         'TargetBridgeFirmwareOutdatedError',
         'TargetHardwareMalfunctionError',
         'TargetBridgeHardwareMalfunctionError',
+        'UnableToGetValueError',
+        'UnableToSetValueError',
         'UnwillingToSetValueError',
         'RateLimitExceededError',
         'NotSupportedInCurrentModeError',
@@ -337,11 +460,10 @@ def generateSampleErrorAppliances():
         'UnsupportedTargetError',
         'UnsupportedOperationError',
         'UnsupportedTargetSettingError',
-        'UnexpectedInformationReceivedError',
+        'UnexpectedInformationReceivedError'
     ]
-
     sample_error_appliances = []
-    device_number = 50
+    device_number = 100
 
     for error in VALID_CONTROL_ERROR_RESPONSE_NAMES:
         sample_error_appliance = {
@@ -350,7 +472,7 @@ def generateSampleErrorAppliances():
             'modelName': 'Switch',
             'version': '1',
             'friendlyName': 'Device ' + str(device_number),
-            'friendlyDescription': error,
+            'friendlyDescription': 'Alexa turn on Device ' + str(device_number) + '. Response: ' + error,
             'isReachable': True,
             'actions': [
                 'turnOn',
@@ -360,7 +482,7 @@ def generateSampleErrorAppliances():
         }
 
         if error == 'ValueOutOfRangeError':
-            #sample_error_appliance['friendlyDescription'] = 'Utterance - Alexa set Device ' + str(device_number) + ' to 80 degrees. Response - ' + error,
+            sample_error_appliance['friendlyDescription'] = 'Alexa set Device ' + str(device_number) + ' to 80 degrees. Response: ' + error
             sample_error_appliance['modelName'] = 'Thermostat'
             sample_error_appliance['actions'] = [
                 'setTargetTemperature',
@@ -435,6 +557,40 @@ def generateTemperatureResponse(request,previous_temperature,previous_mode,targe
                 'minimumValue': 5.0,
                 'maximumValue': 30.0,
             }
+    elif request_name == 'GetTemperatureReadingRequest':
+        response_name = 'GetTemperatureReadingResponse'
+        payload = {
+            'temperatureReading': {
+                'value': 21.00,
+            }
+        }
+
+    elif request_name == 'GetTargetTemperatureRequest':
+        response_name = 'GetTargetTemperatureResponse'
+        payload = {
+            'applianceResponseTimestamp': getUTCTimestamp(),
+            'temperatureMode': {
+                'value': target_mode,
+                'friendlyName': '',
+            }
+        }
+
+        if target_mode in ['HEAT','COOL','ECO','CUSTOM']:
+            payload['targetTemperature'] = {
+                'value': 21.00,
+            }
+        elif target_mode in ['AUTO']:
+            payload['coolingTargetTemperature'] = {
+                'value': 23.00
+            }
+            payload['heatingTargetTemperature'] = {
+                'value': 19.00
+            }
+
+        if target_mode == 'CUSTOM':
+            payload['temperatureMode']['friendlyName'] = 'Manufacturer custom mode'
+
+
     else:
         response_name = 'UnexpectedInformationReceivedError'
         payload = {
@@ -444,3 +600,9 @@ def generateTemperatureResponse(request,previous_temperature,previous_mode,targe
     header = generateResponseHeader(request,response_name)
     response = generateResponse(header,payload)
     return response
+
+
+"""Utility functions."""
+
+def getUTCTimestamp(seconds=None):
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(seconds))
