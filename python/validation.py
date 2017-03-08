@@ -43,7 +43,9 @@ VALID_CONTROL_REQUEST_NAMES = [
     'SetLockStateRequest'
 ]
 VALID_QUERY_REQUEST_NAMES = [
-    'GetLockStateRequest'
+    'GetLockStateRequest',
+    'GetTemperatureReadingRequest',
+    'GetTargetTemperatureRequest'
 ]
 VALID_SYSTEM_REQUEST_NAMES = [
     'HealthCheckRequest'
@@ -90,7 +92,9 @@ VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'UnexpectedInformationReceivedError'
 ]
 VALID_QUERY_RESPONSE_NAMES = [
-    'GetLockStateResponse'
+    'GetLockStateResponse',
+    'GetTemperatureReadingResponse',
+    'GetTargetTemperatureResponse'
 ]
 VALID_SYSTEM_RESPONSE_NAMES = [
     'HealthCheckResponse'
@@ -101,6 +105,8 @@ VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES = [
     'SetTargetTemperatureConfirmation',
     'IncrementTargetTemperatureConfirmation',
     'DecrementTargetTemperatureConfirmation',
+    'GetTemperatureReadingResponse',
+    'GetTargetTemperatureResponse',
     'SetLockStateConfirmation',
     'GetLockStateResponse',
     'ValueOutOfRangeError',
@@ -117,6 +123,8 @@ VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES = [
 VALID_ACTIONS = [
     'decrementPercentage',
     'decrementTargetTemperature',
+    'getTargetTemperature',
+    'getTemperatureReading',
     'getLockState',
     'incrementPercentage',
     'incrementTargetTemperature',
@@ -129,7 +137,10 @@ VALID_ACTIONS = [
 VALID_TEMPERATURE_MODES = [
     'HEAT',
     'COOL',
-    'AUTO'
+    'AUTO',
+    'ECO',
+    'OFF',
+    'CUSTOM'
 ]
 VALID_CURRENT_DEVICE_MODES = [
     'HEAT',
@@ -386,6 +397,8 @@ def validateControlResponse(request,response):
             if required_key not in payload['errorInfo']: raise_value_error(generate_error_message(response_name,'payload.errorInfo' + format(required_key) + ' is missing',payload))
         if payload['errorInfo']['code'] not in VALID_UNABLE_ERROR_INFO_CODES: raise_value_error(generate_error_message(response_name,'payload.errorInfo.code is invalid',payload))
 
+    if response_name == 'UnableToGetValueError': validateQueryResponse(request,response) # this is a really ugly hack
+
     if response_name == 'UnwillingToSetValueError':
         required_key = 'errorInfo'
         if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
@@ -434,6 +447,44 @@ def validateQueryResponse(request,response):
         if bool(payload): raise_value_error(generate_error_message(response_name,'payload must be empty',payload))
     else:
         if not bool(payload): raise_value_error(generate_error_message(response_name,'payload must not be empty',payload))
+
+    # Validate thermostat query response payload
+    if response_name in 'GetTemperatureReadingResponse': 
+        for required_key in ['temperatureReading']:
+            if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
+        if 'value' not in payload['temperatureReading']: raise_value_error(generate_error_message(response_name,'payload.temperatureReading.value is missing',payload))
+        if not is_number(payload['temperatureReading']['value']): raise_value_error(generate_error_message(response_name,'payload.temperatureReading.value must be a number',payload))
+
+    if response_name in 'GetTargetTemperatureResponse': 
+        for required_key in ['temperatureMode']:
+            if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
+        if 'value' not in payload['temperatureMode']: raise_value_error(generate_error_message(response_name,'payload.temperatureMode.value is missing',payload))
+        if payload['temperatureMode']['value'] not in VALID_TEMPERATURE_MODES: raise_value_error(generate_error_message(response_name,'payload.temperatureMode.value is invalid',payload))
+
+        mode = payload['temperatureMode']['value']
+
+        for optional_key in ['targetTemperature','coolingTargetTemperature','heatingTargetTemperature']:
+            if optional_key in payload:
+                if 'value' not in payload[optional_key]: raise_value_error(generate_error_message(response_name,'payload.' + optional_key + '.value is missing',payload))
+                if not is_number(payload[optional_key]['value']): raise_value_error(generate_error_message(response_name,'payload.' + optional_key + '.value must be a number',payload))
+
+        if mode == 'CUSTOM':
+            if 'friendlyName' not in payload['temperatureMode']: raise_value_error(generate_error_message(response_name,'payload.temperatureMode.friendlyName is missing',payload))
+            if is_empty_string(payload['temperatureMode']['friendlyName']): raise_value_error(generate_error_message(response_name,'payload.temperatureMode.friendlyName must not be empty',payload))
+
+    # Validate lock query response payload
+    if response_name in ['GetLockStateRequest']:
+        for required_key in ['lockState']:
+            if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
+        if payload['lockState'] not in VALID_LOCK_STATES: raise_value_error(generate_error_message(response_name,'payload.lockState is invalid',payload))
+
+    # Validate query error response payload
+    if response_name == 'UnableToGetValueError':
+        required_key = 'errorInfo'
+        if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
+        for required_key in ['code','description']:
+            if required_key not in payload['errorInfo']: raise_value_error(generate_error_message(response_name,'payload.errorInfo' + format(required_key) + ' is missing',payload))
+        if payload['errorInfo']['code'] not in VALID_UNABLE_ERROR_INFO_CODES: raise_value_error(generate_error_message(response_name,'payload.errorInfo.code is invalid',payload))
 
 
 def validateResponseHeader(request,response):
