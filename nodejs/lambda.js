@@ -33,54 +33,30 @@ language governing permissions and limitations under the License.
  */
 var validator = require('validation');
 
-exports.handler = function(request, context) {
-    switch (request.header.namespace) {
-        /**
-         * The namespace of 'Alexa.ConnectedHome.Discovery' indicates a request is being made to the lambda for
-         * discovering all appliances associated with the customer's appliance cloud account.
-         * 
-         * For more information on device discovery, please see 
-         *  https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#discoverappliancesrequest
-         */
-        case 'Alexa.ConnectedHome.Discovery':
-            handleDiscovery(request, context);
-            break;
-        /**
-         * The namespace of "Alexa.ConnectedHome.Control" indicates a request is being made to control a dimmable or non-dimmable
-         * bulb or to control a thermostat. The full list of Control events sent to your lambda are:
-         *  - TurnOnRequest
-         *          https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#turnonrequest
-         *  - TurnOffRequest
-         *          https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#turnoffrequest 
-         *  - SetTargetTemperatureRequest
-         *          https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#settargettemperaturerequest
-         *  - IncrementTargetTemperatureRequest
-         *          https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#incrementtargettemperaturereques
-         *  - DecrementTargetTemperatureRequest
-         *          https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#decrementtargettemperaturerequest
-         *  - SetPercentageRequest
-         *          https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#setpercentagerequest
-         *  - IncrementPercentageRequest
-         *          https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#incrementpercentagerequest
-         *  - DecrementPercentageRequest
-         *          https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#decrementpercentagerequest
-         */
-        case 'Alexa.ConnectedHome.Control':
-            handleControl(request, context);
-            break;
-        /**
-         * We received an unexpected message
-         */
-        default:
-            log('ERROR', 'No supported namespace: ' + request.header.namespace);
-            /**
-             * Respond with UnexpectedInformationReceivedError 
-             */
-            context.succeed( error('UnexpectedInformationReceivedError', {"faultingParameter": request.header.namespace}));
-            break;
-    }
+exports.handler = function(request, context) {  
+    try{
+        validateContext(context);
+        var response = {};
+        switch (request.header.namespace) {
+            case 'Alexa.ConnectedHome.Discovery':
+                response = handleDiscovery(request, context);
+                break;
+            case 'Alexa.ConnectedHome.Control':
+                response = handleControl(request, context);
+                break;
+            case 'Alexa.ConnectedHome.Query':
+                response = handleQuery(request, context);
+                break;
+            default:
+                log('ERROR', 'No supported namespace: ' + request.header.namespace);
+                context.succeed( error('UnexpectedInformationReceivedError', {"faultingParameter": request.header.namespace}));
+                break;
+            }
+        } catch(err){
+            log('ERROR', err);
+            throw err;
+        }
 };
-
 /**
  * This method is invoked when we receive a "Discovery" message from Alexa Smart Home Skill.
  * We are expected to respond back with a list of appliances that we have discovered for a given
@@ -143,19 +119,7 @@ function handleDiscovery(request, context) {
      * These messages will be stored in CloudWatch
      */
     log('DEBUG', 'Discovery Response: ' + JSON.stringify({payload: payload, header: header}));
-    /**
-     * Return result with sucessfull message
-     */
-    try{
-        var response = {header, payload};
-        validator.validateResponse(request, response);
-        context.succeed(response);
-    } catch (error){
-        log('FATAL', error);
-        throw(error);
-    }
-   
-    
+    return {header, payload};
 }
 
 /**
@@ -819,104 +783,122 @@ var APPLIANCE_CONTROLS = [
  * For more information on the the discovered appliance response please see
  * https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#discoverappliancesresponse
  */
-var USER_DEVICES = {
-    users : [{
-        access_token : 1,
-        devices : [
-            {
-                // This id needs to be unique across all devices discovered for a given manufacturer
-                applianceId :           'unique-id-for-non-dimmable-bulb-or-switch-specific-to-user1',
-                // Company name that produces and sells the smart home device
-                manufacturerName :      'SmartHome Product Company',
-                // Model name of the device
-                modelName :             'NON-DIMMABLE BULB MODEL ABC',
-                // Version number of the product
-                version:                '1.0',
-                // The name give by the user in your application. Examples include 'Bedroom light' etc
-                friendlyName:           '[non-dimmable] Device name set by user in partner app',
-                // Should describe the device type and the company/cloud provider. 
-                // This value will be shown in the Alexa app
-                friendlyDescription:    'Smart light bulb from SmartHome Product Company',
-                // Boolean value to represent the status of the device at time of discovery
-                isReachable:            true,
-                // List the actions the device can support from our API
-                // The action should be the name of the Requests listed here
-                // https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#On/Off Messages
-                // https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#Temperature Control Messages
-                // https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#Percentage Messages
-                // with the trailing 'Request' string removed and the first letter lower cased.
-                //
-                actions:                ['turnOn','turnOff'],    
-                // not used at this time
-                additionalApplianceDetails : {
-                    'extraDetail1': 'optionalDetailForSkillAdapterToReferenceThisDevice',
-                    'extraDetail2': 'There can be multiple entries',
-                    'extraDetail3': 'but they should only be used for reference purposes.',
-                    'extraDetail4': 'This is not a suitable place to maintain current device state'
-                }
-            },{
-                // This id needs to be unique across all devices discovered for a given manufacturer
-                applianceId :           'unique-id-for-dimmable-bulb-or-switch-specific-to-user1',
-                // Company name that produces and sells the smart home device
-                manufacturerName :      'SmartHome Product Company',
-                // Model name of the device
-                modelName :             'DIMMABLE BULB MODEL XYZ',
-                // Version number of the product
-                version:                '1.0',
-                // The name give by the user in your application. Examples include 'Bedroom light' etc
-                friendlyName:           '[dimmable] Device name set by user in partner app',
-                // Should describe the device type and the company/cloud provider. 
-                // This value will be shown in the Alexa app
-                friendlyDescription:    'Dimmable light bulb from SmartHome Product Company',
-                // Boolean value to represent the status of the device at time of discovery
-                isReachable:            true,
-                // List the actions the device can support from our API
-                // The action should be the name of the Requests listed here
-                // https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#On/Off Messages
-                // https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#Temperature Control Messages
-                // https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#Percentage Messages
-                // with the trailing 'Request' string removed and the first letter lower cased.
-                //
-                actions:                ['turnOn','turnOff','setPercentage','incrementPercentage','decrementPercentage'],    
-                // not used at this time
-                additionalApplianceDetails : {
-                    'extraDetail1': 'optionalDetailForSkillAdapterToReferenceThisDevice',
-                    'extraDetail2': 'There can be multiple entries',
-                    'extraDetail3': 'but they should only be used for reference purposes.',
-                    'extraDetail4': 'This is not a suitable place to maintain current device state'
-                }
-            },{
-                // This id needs to be unique across all devices discovered for a given manufacturer
-                applianceId :           'unique-id-for-thermostat-specific-to-user1',
-                // Company name that produces and sells the smart home device
-                manufacturerName :      'SmartHome Product Company',
-                // Model name of the device
-                modelName :             'THERMOSTAT MODEL 123',
-                // Version number of the product
-                version:                '1.0',
-                // The name give by the user in your application. Examples include 'Bedroom light' etc
-                friendlyName:           '[thermostat] Device name set by user in partner app',
-                // Should describe the device type and the company/cloud provider. 
-                // This value will be shown in the Alexa app
-                friendlyDescription:    'Smart Thermostat from SmartHome Product Company',
-                // Boolean value to represent the status of the device at time of discovery
-                isReachable:            true,
-                // List the actions the device can support from our API
-                // The action should be the name of the Requests listed here
-                // https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#On/Off Messages
-                // https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#Temperature Control Messages
-                // https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#Percentage Messages
-                // with the trailing 'Request' string removed and the first letter lower cased.
-                //
-                actions:                ['turnOn','turnOff','setTargetTemperatire','increaseTargetTemperature','decreaseTargetTemperature'],    
-                // not used at this time
-                additionalApplianceDetails : {
-                    'extraDetail1': 'optionalDetailForSkillAdapterToReferenceThisDevice',
-                    'extraDetail2': 'There can be multiple entries',
-                    'extraDetail3': 'but they should only be used for reference purposes.',
-                    'extraDetail4': 'This is not a suitable place to maintain current device state'
-                }
+var SAMPLE_MANUFACTURER = 'Sample Manufacturer'
+var SAMPLE_APPLIANCES = [
+        {
+            'applianceId': 'switch-001',
+            'manufacturerName': SAMPLE_MANUFACTURER,
+            'modelName': 'Switch',
+            'version': '1',
+            'friendlyName': 'Sample Switch',
+            'friendlyDescription': 'Switch by ' + SAMPLE_MANUFACTURER,
+            'isReachable': True,
+            'actions': [
+                'turnOn',
+                'turnOff',
+            ],
+            'additionalApplianceDetails': {
+                'extraDetail1': 'This is an on/off switch that is online and reachable',
+            }        
+        },
+        {
+            'applianceId': 'dimmer-001',
+            'manufacturerName': SAMPLE_MANUFACTURER,
+            'modelName': 'Dimmer',
+            'version': '1',
+            'friendlyName': 'Sample Dimmer',
+            'friendlyDescription': 'Dimmer by ' + SAMPLE_MANUFACTURER,
+            'isReachable': True,
+            'actions': [
+                'turnOn',
+                'turnOff',
+                'setPercentage',
+                'incrementPercentage',
+                'decrementPercentage',
+            ],
+            'additionalApplianceDetails': {
+                'extraDetail1': 'This is a dimmer that is online and reachable',
+            }        
+        },
+        {
+            'applianceId': 'fan-001',
+            'manufacturerName': SAMPLE_MANUFACTURER,
+            'modelName': 'Fan',
+            'version': '1',
+            'friendlyName': 'Sample Fan',
+            'friendlyDescription': 'Fan by ' + SAMPLE_MANUFACTURER,
+            'isReachable': True,
+            'actions': [
+                'turnOn',
+                'turnOff',
+                'setPercentage',
+                'incrementPercentage',
+                'decrementPercentage',
+            ],
+            'additionalApplianceDetails': {
+                'extraDetail1': 'This is a fan that is online and reachable',
+            }        
+        },
+        {
+            'applianceId': 'switch-unreachable-001',
+            'manufacturerName': SAMPLE_MANUFACTURER,
+            'modelName': 'Switch',
+            'version': '1',
+            'friendlyName': 'Sample Switch Unreachable',
+            'friendlyDescription': 'Switch by ' + SAMPLE_MANUFACTURER,
+            'isReachable': False,
+            'actions': [
+                'turnOn',
+                'turnOff',
+            ],
+            'additionalApplianceDetails': {
+                'extraDetail1': 'This is an on/off switch that is not reachable and should show as offline in the Alexa app',
             }
-        ]
-    }]
+        },
+        {
+            'applianceId': 'ThermostatAuto-001',
+            'manufacturerName': SAMPLE_MANUFACTURER,
+            'modelName': 'Thermostat',
+            'version': '1',
+            'friendlyName': 'Amazon Basement',
+            'friendlyDescription': 'Thermostat in AUTO mode and reachable',
+            'isReachable': True,
+            'actions': [
+                'setTargetTemperature',
+                'incrementTargetTemperature',
+                'decrementTargetTemperature',
+            ],
+            'additionalApplianceDetails': {}
+        },
+        {
+            'applianceId': 'ThermostatHeat-001',
+            'manufacturerName': SAMPLE_MANUFACTURER,
+            'modelName': 'Thermostat',
+            'version': '1',
+            'friendlyName': 'Amazon Heater',
+            'friendlyDescription': 'Thermostat in HEAT mode and reachable',
+            'isReachable': True,
+            'actions': [
+                'setTargetTemperature',
+                'incrementTargetTemperature',
+                'decrementTargetTemperature',
+            ],
+            'additionalApplianceDetails': {}
+        },
+        {
+            'applianceId': 'ThermostatCool-001',
+            'manufacturerName': SAMPLE_MANUFACTURER,
+            'modelName': 'Thermostat',
+            'version': '1',
+            'friendlyName': 'Amazon Cooler',
+            'friendlyDescription': 'Thermostat in COOL mode and reachable',
+            'isReachable': True,
+            'actions': [
+                'setTargetTemperature',
+                'incrementTargetTemperature',
+                'decrementTargetTemperature',
+            ],
+            'additionalApplianceDetails': {}
+        }
+    ];
 };

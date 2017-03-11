@@ -40,12 +40,21 @@ var VALID_CONTROL_REQUEST_NAMES = [
     'DecrementTargetTemperatureRequest',
     'SetPercentageRequest',
     'IncrementPercentageRequest',
-    'DecrementPercentageRequest'
+    'DecrementPercentageRequest',
+    'SetLockStateRequest'
+];
+var VALID_QUERY_REQUEST_NAMES = [
+    'GetLockStateRequest',
+    'GetTemperatureReadingRequest',
+    'GetTargetTemperatureRequest'
 ];
 var VALID_SYSTEM_REQUEST_NAMES = [
     'HealthCheckRequest'
 ];
-var VALID_REQUEST_NAMES = VALID_DISCOVERY_REQUEST_NAMES.concat(VALID_CONTROL_REQUEST_NAMES).concat(VALID_SYSTEM_REQUEST_NAMES);
+var VALID_REQUEST_NAMES = VALID_DISCOVERY_REQUEST_NAMES
+                                .concat(VALID_CONTROL_REQUEST_NAMES)
+                                .concat(VALID_SYSTEM_REQUEST_NAMES)
+                                .concat(VALID_QUERY_REQUEST_NAMES);
 
 var VALID_DISCOVERY_RESPONSE_NAMES = [
     'DiscoverAppliancesResponse'
@@ -58,7 +67,13 @@ var VALID_CONTROL_RESPONSE_NAMES = [
     'DecrementTargetTemperatureConfirmation',
     'SetPercentageConfirmation',
     'IncrementPercentageConfirmation',
-    'DecrementPercentageConfirmation'
+    'DecrementPercentageConfirmation',
+    'SetLockStateConfirmation'
+];
+var VALID_QUERY_RESPONSE_NAMES = [
+    'GetLockStateResponse',
+    'GetTemperatureReadingResponse',
+    'GetTargetTemperatureResponse'
 ];
 var VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'ValueOutOfRangeError',
@@ -81,40 +96,59 @@ var VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'UnsupportedTargetError',
     'UnsupportedOperationError',
     'UnsupportedTargetSettingError',
-    'UnexpectedInformationReceivedError'
+    'UnexpectedInformationReceivedError',
+    'UnableToGetValueError',
+    'UnableToSetValueError'
 ];
 var VALID_SYSTEM_RESPONSE_NAMES = [
     'HealthCheckResponse'
 ];
-var VALID_RESPONSE_NAMES = VALID_DISCOVERY_RESPONSE_NAMES.concat(VALID_CONTROL_RESPONSE_NAMES).concat(VALID_CONTROL_ERROR_RESPONSE_NAMES).concat(VALID_SYSTEM_RESPONSE_NAMES);
+var VALID_RESPONSE_NAMES = VALID_DISCOVERY_RESPONSE_NAMES
+                            .concat(VALID_CONTROL_RESPONSE_NAMES)
+                            .concat(VALID_CONTROL_ERROR_RESPONSE_NAMES)
+                            .concat(VALID_SYSTEM_RESPONSE_NAMES)
+                            .concat(VALID_QUERY_RESPONSE_NAMES);
 
 var VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES = [
     'SetTargetTemperatureConfirmation',
     'IncrementTargetTemperatureConfirmation',
     'DecrementTargetTemperatureConfirmation',
     'ValueOutOfRangeError',
+    'GetTemperatureReadingResponse',
+    'GetTargetTemperatureResponse',
     'DependentServiceUnavailableError',
     'TargetFirmwareOutdatedError',
     'TargetBridgeFirmwareOutdatedError',
     'UnwillingToSetValueError',
+    'UnableToGetValueError',
+    'UnableToSetValueError',
     'RateLimitExceededError',
     'NotSupportedInCurrentModeError',
-    'UnexpectedInformationReceivedError'
+    'UnexpectedInformationReceivedError',
+    'SetLockStateConfirmation',
+    'GetLockStateResponse'
 ];
 var VALID_ACTIONS = [
-    'setTargetTemperature',
-    'incrementTargetTemperature',
-    'decrementTargetTemperature',
-    'setPercentage',
-    'incrementPercentage',
     'decrementPercentage',
+    'decrementTargetTemperature',
+    'getTargetTemperature',
+    'getTemperatureReading',
+    'getLockState',
+    'incrementPercentage',
+    'incrementTargetTemperature',
+    'setLockState',
+    'setPercentage',
+    'setTargetTemperature',
     'turnOff',
     'turnOn'
 ];
 var VALID_TEMPERATURE_MODES = [
     'HEAT',
     'COOL',
-    'AUTO'
+    'AUTO',
+    'ECO',
+    'OFF',
+    'CUSTOM'
 ];
 var VALID_CURRENT_DEVICE_MODES = [
     'HEAT',
@@ -123,9 +157,22 @@ var VALID_CURRENT_DEVICE_MODES = [
     'AWAY',
     'OTHER'
 ];
-var VALID_ERRORINFO_CODES = [
+var VALID_LOCK_STATES = [
+    'LOCKED',
+    'UNLOCKED'
+ ];
+var VALID_UNWILLING_ERROR_INFO_CODES = [
     'ThermostatIsOff'
 ];
+var VALID_UNABLE_ERROR_INFO_CODES = [
+    'DEVICE_AJAR',
+    'DEVICE_BUSY',
+    'DEVICE_JAMMED',
+    'DEVICE_OVERHEATED',
+    'HARDWARE_FAILURE',
+    'LOW_BATTERY',
+    'NOT_CALIBRATED'
+ ];
 var VALID_TIME_UNITS = [
     'MINUTE',
     'HOUR',
@@ -177,11 +224,14 @@ function validateResponse(request, response){
 	*/
 
     // Validate request
-    if (isEmpty(request)){
+    if (!request){
         throw new Error(generateErrorMessage('Request', 'request is missing', request));
     }
+    if (isEmpty(request)){
+        throw new Error(generateErrorMessage('Request', 'request must not be empty', request));
+    }
     if (!request instanceof Array){
-        throw new Error(generateErrorMessage('Request','request must be a dict',request));
+        throw new Error(generateErrorMessage('Request','request must be a Array',request));
     }
     try{
         requestNamespace = request.header.namespace;
@@ -191,11 +241,14 @@ function validateResponse(request, response){
     }
     	
     // Validate response
-    if (isEmpty(response)){
+    if (!response){
         throw new Error(generateErrorMessage('Response', 'response is missing', response));
     }
-    if (!response instanceof Array){
-        throw new Error(generateErrorMessage('Response','request must be a dict',request));
+    if (isEmpty(response)){
+        throw new Error(generateErrorMessage('Response', 'response must not be empty', response));
+    }
+    if (!(response instanceof Array)){
+        throw new Error(generateErrorMessage('Response','request must be a Array',request));
     }
     REQUIRED_RESPONSE_KEYS.forEach( function(required_key){
         if(!(required_key in response)){
@@ -208,6 +261,9 @@ function validateResponse(request, response){
     }
     else if (request.header.namespace === 'Alexa.ConnectedHome.Control'){
         validateControlResponse(request, response);
+    }
+    else if (request.header.namespace === 'Alexa.ConnectedHome.Query'){
+        validateQueryResponse(request, response);
     }
     else if (request.header.namespace === 'Alexa.ConnectedHome.System'){
         validateSystemResponse(request,response);
@@ -240,16 +296,16 @@ function validateSystemResponse(request,response){
     }
 
     ['description','isHealthy'].forEach( function(required_key){
-        if (!required_key in payload){
-            throw new Error(generateErrorMessage(response_name,'payload.' + format(required_key) + ' is missing',payload));
+        if (!(required_key in payload)){
+            throw new Error(generateErrorMessage(response_name,'payload.' + required_key + ' is missing',payload));
         }
-        if (isEmpty(payload.description)){
-            throw new Error(generateErrorMessage(response_name,'payload.description must not be empty',payload));
-        }
-        if (!payload.isHealthy instanceof boolean){
-            throw new Error(generateErrorMessage(response_name,'payload.isHealthy must be a boolean',payload));
-        } 
     });  
+    if (isEmpty(payload.description)){
+        throw new Error(generateErrorMessage(response_name,'payload.description must not be empty',payload));
+    }
+    if (!(payload.isHealthy instanceof boolean)){
+        throw new Error(generateErrorMessage(response_name,'payload.isHealthy must be a boolean',payload));
+    } 
 } 
 function validateDiscoveryResponse(request, response){
     /*Validate the response to a DiscoverApplianceRequest request.
@@ -265,15 +321,20 @@ function validateDiscoveryResponse(request, response){
     var response_name = response.header.name;
 
     // Validate response payload
-    if (isEmpty(payload)){
+    if (!payload){
         throw new Error(generateErrorMessage(response.header.name, 'payload is missing', payload));
     }
-
+    if (isEmpty(payload)){
+        throw new Error(generateErrorMessage(response.header.name, 'payload must not be empty', payload));
+    }
+    if (!(payload instanceof Array)){
+        throw new Error(generateErrorMessage('Response','request must be a Array',request));
+    }
     if (!('discoveredAppliances' in payload)){
         throw new Error(generateErrorMessage(response_name, 'payload.discoveredAppliances is missing', payload));
     }
     if (!(payload.discoveredAppliances instanceof Array)){
-        throw new Error(generateErrorMessage(response_name, 'payload.discoveredAppliances must be a list, can be empty', payload));
+        throw new Error(generateErrorMessage(response_name, 'payload.discoveredAppliances must be an Array, can be empty', payload));
     }
     if (payload.discoveredAppliances.length > MAX_DISCOVERED_APPLIANCES){
         throw new Error(generateErrorMessage(response_name,'payload.discoveredAppliances must not contain more than 300 appliances', payload));
@@ -361,15 +422,22 @@ function validateControlResponse(request, response){
     // Validate header
     validateResponseHeader(request, response);
     
-    var payload = response.payload;
+    var payload;
     var request_name = request.header.name;
     var response_name = response.header.name;
 
     // Validate response payload
-    if (payload == null){
+    if (!payload){
         throw new Error(generateErrorMessage(response_name, 'payload is missing', payload));
     }
-
+    try{
+        payload = response.payload;
+    } catch(err){
+        throw new Error(generateErrorMessage(response_name, 'payload is missing', payload));
+    }
+    if (!(payload instanceof Array)){
+        throw new Error(generateErrorMessage(response_name, 'payload must be an Array', payload));
+    }
     // Validate non-empty control response payload
     if (isInArray(VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES,response_name)){
         if (isEmpty(payload)){
@@ -421,8 +489,16 @@ function validateControlResponse(request, response){
                 throw new Error(generateErrorMessage(response_name, 'payload.previousState.temperatureMode.value is invalid', payload));
             }
         });
+    }
+    // Validate lock control response payload
+    if(response_name in ['SetLockStateResponse']){
+        if (!('lockState' in payload)){
+            throw new Error(generateErrorMessage(response_name,'payload.lockState is missing', payload));
+        }
+        if (!(payload['lockState'] in VALID_LOCK_STATES)){
+            throw new Error(generateErrorMessage(response_name,'payload.lockState is invalid',payload));
+        } 
     }    
-
     // Validate control error response payload
     if (response_name === 'ValueOutOfRangeError'){
         ['minimumValue','maximumValue'].forEach(function(key){
@@ -434,7 +510,6 @@ function validateControlResponse(request, response){
             }
         });   
     }
-
     if (response_name === 'DependentServiceUnavailableError'){
         if (!('dependentServiceName' in payload)){
             throw new Error(generateErrorMessage(response_name, 'payload.dependentServiceName is missing', payload));
@@ -443,7 +518,6 @@ function validateControlResponse(request, response){
             throw new Error(generateErrorMessage(response_name, 'payload.dependentServiceName must be specifed in alphanumeric characters and spaces', payload));
         }
     }
-
     if (response_name in ['TargetFirmwareOutdatedError','TargetBridgeFirmwareOutdatedError']){
         ['minimumFirmwareVersion','currentFirmwareVersion'].forEach( function(key){
             if (!(key in payload)){
@@ -458,7 +532,22 @@ function validateControlResponse(request, response){
             }
         });
     }
-
+    if (response_name in ['UnableToSetValueError']){
+        if (!('errorInfo' in payload)){
+            throw new Error(generateErrorMessage(response_name, 'payload.errorInfo is missing', payload));
+        }
+        ['code','description'].forEach( function(key){
+            if (!(key in payload.errorInfo)){
+                throw new Error(generateErrorMessage(response_name, 'payload.errorInfo.' + key + ' is missing', payload));
+            }
+        });
+        if (!isInArray(VALID_UNABLE_ERROR_INFO_CODES,payload.errorInfo.code)){
+            throw new Error(generateErrorMessage(response_name,'payload.errorInfo.code is invalid',payload));
+        }
+    }
+    if (response_name in ['UnableToGetValueError']){
+       validateQueryResponse(request,response);
+    }
     if ( response_name === 'UnwillingToSetValueError'){
         if (!('errorInfo' in payload)){
             throw new Error(generateErrorMessage(response_name, 'payload.errorInfo is missing', payload));
@@ -472,7 +561,6 @@ function validateControlResponse(request, response){
             throw new Error(generateErrorMessage(response_name, 'payload.errorInfo.code is invalid', payload));
         }
     }
-
     if (response_name === 'RateLimitExceededError'){
         ['rateLimit','timeUnit'].forEach( function(key){
             if (!(key in payload)){
@@ -505,7 +593,108 @@ function validateControlResponse(request, response){
         }
     }
 }
+function validateQueryResponse(request,response){
+   /*"""Validate the response to a Query request.
 
+    This method validates the response to a Query (e.g. ambient temperature, lock state, etc.) request, based on the API reference (starting from):
+    https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#onoff-messages
+    """ 
+    */
+    // Validate header
+    validateResponseHeader(request,response);
+    response_name = response.header.name
+
+    // Validate response payload
+    try{
+        payload = response.payload;
+    }
+    catch(err){
+        throw new Error(generateErrorMessage(response_name,'payload is missing',response));
+    }
+    if (!payload){
+        throw new Error(generateErrorMessage(response_name,'payload is missing',payload));
+    }
+    if (!payload instanceof Array){
+        throw new Error(generateErrorMessage(response_name,'payload must be an Array',payload));
+    } 
+    // Validate non-empty control response payload
+    if (response_name in VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES){
+        if (isEmpty(payload)){
+            throw new Error(generateErrorMessage(response_name,'payload must not be empty',payload));
+        } 
+    }
+    else{
+        if (!isEmpty(payload)){
+            throw new Error(generateErrorMessage(response_name,'payload must be empty',payload));
+        } 
+    }
+    // Validate thermostat query response payload
+    if (response_name === 'GetTemperatureReadingResponse'){
+        if (!payload.temperatureReading){
+            throw new Error(generateErrorMessage(response_name,'payload.temperatureReading is missing',payload));
+        } 
+        if(!payload.temperatureReading.value){
+             throw new Error(generateErrorMessage(response_name,'payload.temperatureReading.value is missing',payload));
+        }
+        if (typeof payload.temperatureReading.value != "number"){
+            throw new Error(generateErrorMessage(response_name,'payload.temperatureReading.value must be a number',payload));
+        }
+    }
+    if (response_name === 'GetTargetTemperatureResponse'){
+        if (!payload.temperatureMode){
+            throw new Error(generateErrorMessage(response_name,'payload.temperatureMode is missing',payload));
+        }
+        if(!payload.temperatureMode.value){
+             throw new Error(generateErrorMessage(response_name,'payload.temperatureMode.value is missing',payload));
+        } 
+        if (!(payload.temperatureMode.value in VALID_TEMPERATURE_MODES)){
+            throw new Error(generateErrorMessage(response_name,'payload.temperatureMode.value is invalid',payload));
+        }
+        mode = payload.temperatureMode.value;
+
+        ['targetTemperature','coolingTargetTemperature','heatingTargetTemperature'].forEach(function(optional_key){
+            if (optional_key in payload){
+                if (!payload[optional_key].value){
+                    throw new Error(generateErrorMessage(response_name,'payload.' + optional_key + '.value is missing',payload));
+                } 
+                if (typeof payload[optional_key].value != 'number'){
+                    throw new Error(generateErrorMessage(response_name,'payload.' + optional_key + '.value must be a number',payload));
+                }
+            }
+        });
+        if (mode === 'CUSTOM'){
+            if (!payload.temperatureMode.friendlyName){
+                throw new Error(generateErrorMessage(esponse_name,'payload.temperatureMode.friendlyName is missing',payload));
+            }
+            if (isEmpty(payload.temperatureMode.friendlyName)){
+                throw new Error(generateErrorMessage(response_name,'payload.temperatureMode.friendlyName must not be empty',payload));
+            }       
+        }
+    }
+    // Validate lock query response payload
+    if (response_name in ['GetLockStateResponse']){
+        if (!payload.lockState){
+            throw new Error(generateErrorMessage(response_name,'payload.lockState is missing',payload));
+        }
+        if (!(payload.lockState in VALID_LOCK_STATES)){
+            throw new Error(generateErrorMessage(response_name,'payload.lockState is invalid',payload));
+        } 
+    }
+    // Validate query error response payload
+    if (response_name === 'UnableToGetValueError'){
+        if (!payload.errorInfo){
+            throw new Error(generateErrorMessage(response_name,'payload.errorInfo is missing',payload));
+        } 
+        ['code','description'].forEach( function(required_key){
+            if (!(required_key in payload.errorInfo)){
+                throw new Error(generateErrorMessage(response_name,'payload.errorInfo' + required_key + ' is missing',payload));
+            }
+        });
+        if (!(payload.errorInfo.code in VALID_UNABLE_ERROR_INFO_CODES)){
+            throw new Error(generateErrorMessage(response_name,'payload.errorInfo.code is invalid',payload));
+        }
+    }
+}
 function validateResponseHeader(request, response){
     /*Validate the response header.
 
@@ -541,10 +730,14 @@ function validateResponseHeader(request, response){
         if (!isInArray(VALID_DISCOVERY_RESPONSE_NAMES,header.name)){
             throw new Error(generateErrorMessage('Discovery Response', 'header.name is invalid', header));
         }
+        var correct_response_name = request_name.replace('Request','Response');
+        if (header.name != correct_response_name){
+            throw new Error(generateErrorMessage('Discovery Response','header.name must be ' + correct_response_name + ' for ' + request_name,header));
+        }
     }
     if (isInArray(VALID_CONTROL_REQUEST_NAMES,request_name)){
-        if (!(header.namespace === 'Alexa.ConnectedHome.Control')){
-            throw new Error(generateErrorMessage('Control Response', 'header.namespace must be Alexa.ConnectedHome.Control', header));
+        if (!(header.namespace in ['Alexa.ConnectedHome.Control', 'Alexa.ConnectedHome.Query'])){
+            throw new Error(generateErrorMessage('Control Response', 'header.namespace must be Alexa.ConnectedHome.Control or Alexa.ConnectedHome.Query', header));
         }
         if (!isInArray(VALID_CONTROL_RESPONSE_NAMES.concat(VALID_CONTROL_ERROR_RESPONSE_NAMES),header.name)){
             throw new Error(generateErrorMessage('Control Response', 'header.name is invalid' ,header));
@@ -555,6 +748,32 @@ function validateResponseHeader(request, response){
                 throw new Error(generateErrorMessage('Control Response','header.name must be an error response name or ' + correct_response_name + ' for ' + request_name,header));   
             }
         }
+    }
+    if (isInArray(VALID_QUERY_REQUEST_NAMES,request_name)){
+        if (!(header.namespace in ['Alexa.ConnectedHome.Control', 'Alexa.ConnectedHome.Query'])){
+            throw new Error(generateErrorMessage('Query Response', 'header.namespace must be Alexa.ConnectedHome.Query or Alexa.ConnectedHome.Control', header));
+        }
+        if (!isInArray(VALID_QUERY_RESPONSE_NAMES.concat(VALID_CONTROL_ERROR_RESPONSE_NAMES),header.name)){
+            throw new Error(generateErrorMessage('Control Response', 'header.name is invalid' ,header));
+        }
+        if (!isInArray(VALID_CONTROL_ERROR_RESPONSE_NAMES,header.name)){
+            var correct_response_name = request_name.replace('Request','Response');
+            if (!(correct_response_name === header.name)){
+                throw new Error(generateErrorMessage('Query Response','header.name must be an error response name or ' + correct_response_name + ' for ' + request_name,header));   
+            }
+        }
+    }
+    if (isInArray(VALID_SYSTEM_REQUEST_NAMES, request_name)){
+        if (header.namespace != 'Alexa.ConnectedHome.System'){
+            throw new Error(generateErrorMessage('System Response','header.namespace must be Alexa.ConnectedHome.System',header));
+        }
+        if (!isInArray(VALID_SYSTEM_RESPONSE_NAMES,header.name)){
+            throw new Error(generateErrorMessage('System Response','header.name is invalid',header));
+        }
+        correct_response_name = request_name.replace('Request','Response')
+        if (header.name != correct_response_name){
+            throw new Error(generateErrorMessage('System Response','header.name must be ' + correct_response_name + ' for ' + request_name,header));
+        } 
     }
 
     // Validate common header constraints
