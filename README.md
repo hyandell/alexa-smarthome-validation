@@ -36,19 +36,9 @@ exports.handler = function(request, context) {
 	...
 ```
 
-Anytime you return a response, i.e. context.succeed(response), add a validation check in a try/catch block. For example:
-```javascript
-try {
-    var response = {header, payload};
-    validator.validateResponse(request, response);
-    context.succeed(response);
-} catch (error) {
-    log('FATAL', error);
-    throw(error);
-}
-```
+Your Lambda will immediately fail if your Lambda's timeout setting is greater than 7 seconds.
 
-Note that if you already have a live skill and you want to be safe, just wrap the call to validator.validateResponse in a try/catch block. This allows you to log an error for your reference, while still returning a response from your Lambda. For example:
+Then, anytime you return a response, i.e. context.succeed(response), add a validation check in a try/catch block. Note that if you already have a live skill and you want to be safe, just wrap the call to validator.validateResponse in a try/catch block. This allows you to log an error for your reference, while still returning a response from your Lambda. For example:
 ```javascript
 var response = {header, payload};
 try {
@@ -59,7 +49,7 @@ try {
 context.succeed(response);
 ```
 
-Test your skill with some bad responses to see if this works.
+Test your skill with some bad responses to see if this works. Then you should setup some CloudWatch alarms on error metrics for your Lambda to be alerted of these errors going forward.
 
 ## Python
 
@@ -86,17 +76,9 @@ def lambda_handler(event,context):
     ...        
 ```
 
-Anytime you return a response, i.e. return(response), add a validation check in a try/catch block. For example:
-```python
-try:
-    validateResponse(request,response)
-    return response
-except ValueError as error:
-    logger.error(error)
-    raise
-```
+Your Lambda will immediately fail if your Lambda's timeout setting is greater than 7 seconds.
 
-Note that if you already have a live skill and you want to be safe, just wrap the call to validateResponse in a try/catch block. This allows you to log an error for your reference, while still returning a response from your Lambda. For example:
+Then, anytime you return a response, i.e. context.succeed(response), add a validation check in a try/catch block. Note that if you already have a live skill and you want to be safe, just wrap the call to validator.validateResponse in a try/catch block. This allows you to log an error for your reference, while still returning a response from your Lambda. For example:
 ```python
 try:
     validateResponse(request,response)
@@ -105,4 +87,12 @@ except ValueError as error:
 return response
 ```
 
-Test your skill with some bad responses to see if this works.
+Test your skill with some bad responses to see if this works. Then you should setup some CloudWatch alarms on error metrics for your Lambda to be alerted of these errors going forward.
+
+# Updates
+
+Please watch this repo as we will update these validation packages every time the Smart Home API is updated.
+
+# Feedback
+
+We welcome all feedback. Please create an issue in this repo if you have any questions, comments, or suggestions.
