@@ -31,27 +31,20 @@ language governing permissions and limitations under the License.
  * Main entry point.
  * Incoming events from Alexa service through Smart Home API are all handled by this function
  */
-var validator = require('validation');
+var validator = require('./validation.js');
 
 exports.handler = function(request, context) {  
     try{
-        validateContext(context);
-        var response = {};
-        switch (request.header.namespace) {
-            case 'Alexa.ConnectedHome.Discovery':
-                response = handleDiscovery(request, context);
-                break;
-            case 'Alexa.ConnectedHome.Control':
-                response = handleControl(request, context);
-                break;
-            case 'Alexa.ConnectedHome.Query':
-                response = handleQuery(request, context);
-                break;
-            default:
-                log('ERROR', 'No supported namespace: ' + request.header.namespace);
-                context.succeed( error('UnexpectedInformationReceivedError', {"faultingParameter": request.header.namespace}));
-                break;
-            }
+        // @TODO uncomment and test in lambda validator.validateContext(context);
+        var resp = {};
+       
+        if (request.header.namespace === 'Alexa.ConnectedHome.Discovery'){
+             resp = handleDiscovery(request, context);
+        }
+        if (request.header.namespace === 'Alexa.ConnectedHome.Control' || request.header.namespace === 'Alexa.ConnectedHome.Query')     
+            resp = handleControl(request, context);
+        validator.validateResponse(request, resp);   
+        context.succeed(resp);
         } catch(err){
             log('ERROR', err);
             throw err;
@@ -79,32 +72,6 @@ exports.handler = function(request, context) {
  *      @TODO copy David's devices so they are consistent'
  */
 function handleDiscovery(request, context) {
-    /**
-     * Get the OAuth token from the request
-     */
-    var user_access_token = request.payload.accessToken.trim();
-    /**
-     * If the user access token is missing, return InvalidAccessTokenError
-     *     https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#invalidaccesstokenerror
-     */
-    if (!user_access_token){
-        log('INFO', 'Discovery Request[' + request.header.messageId + '] failed. No access token provided in request');
-        context.succeed( error( request.header, 'InvalidAccessTokenError'));
-    }
-    /**
-     * Generic stub for validating the token against your cloud service
-     */
-    if (!validAccessToken(user_access_token)){
-        log('INFO', 'Discovery Request[' + request.header.messageId + '] failed. Invalid access token. User not recognized');
-        context.succeed( error( request.header, 'InvalidAccessTokenError'));
-    }
-    /**
-     * Assume access token is valid at this point
-     * Retrieve list of devices from cloud based on token
-     *  
-     * For more information on a disovery response see
-     * https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#discoverappliancesresponse
-     */     
     var payload = {
         discoveredAppliances : getDevicesFromPartnerCloud(user_access_token)
     };
@@ -112,13 +79,12 @@ function handleDiscovery(request, context) {
      * Return same header with namespace and messageId
      * Change the name to 'DiscoverAppliancesResponse'
      */
-    var header = request.header;
-    header.name = "DiscoveredAppliancesResponse";
+    var header =  JSON.parse(JSON.stringify(request.header));
+    header.name = "DiscoverAppliancesResponse";
     /**
      * Log the response
      * These messages will be stored in CloudWatch
      */
-    log('DEBUG', 'Discovery Response: ' + JSON.stringify({payload: payload, header: header}));
     return {header, payload};
 }
 
@@ -127,241 +93,210 @@ function handleDiscovery(request, context) {
  * This is called when Alexa requests an action (IE turn off appliance).
  */
 function handleControl(request, context) {
-    /**
-     * Is this a Control directive?
-     */
-    if(request.header.namespace != 'Alexa.ConnectedHome.Control'){
-        context.succeed(error(header, 'UnexpectedInformationReceivedError', { 'faultingParameter': request.header.namespace}));
-        return;
-    }
-    /**
-     * Is it in the list of known control directives
-     */
-    if(APPLIANCE_CONTROLS.indexOf(request.header.name) == -1){
-        context.succeed(error(header, 'UnexpectedInformationReceivedError', { 'faultingParameter': request.header.name}));
-        return;
-    }
-    /**
-     * Get the access_token
-     */
-    var user_access_token = request.payload.accessToken.trim();
-    /**
-     * If the user access token is missing, return InvalidAccessTokenError
-     *     https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#invalidaccesstokenerror
-     */
-    if (!user_access_token){
-        log('INFO', 'Discovery Request[' + request.header.messageId + '] failed. No access token provided in request');
-        context.succeed( error( request.header, 'InvalidAccessTokenError'));
-        return;
-    }
-    /**
-     * Generic stub for validating the token against your cloud service
-     * 
-     * Replace validAccessToken() function with your own validation
-     */
-    if (!validAccessToken(user_access_token)){
-        log('INFO', 'Discovery Request[' + request.header.messageId + '] failed. Invalid access token. User not recognized');
-        context.succeed( error( request.header, 'InvalidAccessTokenError'));
-        return;
-    }
-    /**
-    var appliance_id = request.
-     * Grab the applianceId from the request. This should be the primary
-     */
-    var applianceId = request.payload.appliance.applianceId;
-    /**
-     * If the applianceId is missing, return UnexpectedInformationReceivedError
-     *     https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#invalidaccesstokenerror
-     */
-    if (!applianceId){
-        log('ERROR', 'No applianceId provided in request');
-        context.succeed(response(request.header, 'UnexpectedInformationReceivedError', {'faultingParameter': request.payload.appliance.applianceId}));
-        return;
-    }
-    /**
-     * At this point the applianceId and accessToken are present in the 
-     * request
-     * 
-     * validateDevice function is designed to catch a subset of availability errors for the device
-     * https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#error-messages
-     * 
-     * This list, for the purpose of this demo code includes the following simulated checks:
-     *  TargetOfflineError
-     *  TargetBridgeOfflineError
-     *  
-     * Please review the full list in the above link for different states that can be reported. 
-     * If these apply to your device/cloud infrastructure, please add the checks and respond with 
-     * accurate error messages. This will give the user the best experience and help diagnose issues with
-     * their devices, accounts, and environment
-     */
-    validateDevice(request.payload.appliance, function(error, payload){
-        if (error){
-            context.succeed(response(request.header, error, payload));
-            return;
-        }
-        switch(request.header.name){
-            /**
-            * TurnOnRequest
-            */
-            case 'TurnOnRequest':
-                turnOn(applianceId, function(error, payload){
-                    if(error){
-                        return context.succeed(response(request.header, error, payload));
-                    }
-                    var response = response(header, 'TurnOnConfirmation');
-                    try{
-                        validator.validateResponse(request, response);
-                        return context.succeed(response);
-                    } catch (error){
-                        log('FATAL', error);
-                        throw(error);
-                    }
-                });
-            /**
-            * TurnOffRequest
-            */
-            case 'TurnOffRequest':
-                turnOff(applianceId, function(error, payload){
-                    if(error){
-                        return context.succeed(response(request.header, error, payload));
-                    }
-                    var response = response(header, 'TurnOffConfirmation');
-                    try{
-                        validator.validateResponse(request, response);
-                        return context.succeed(response);
-                    } catch (error){
-                        log('FATAL', error);
-                        throw(error);
-                    }
-                });
-            /**
-             * SetTargetTemperatureRequest
-             */
+    var payload = {};
+    var appliance_id = request.payload.appliance.applianceId;
+    var message_id = request.header.messageId;
+    var request_name = request.header.name;
 
-            // @TODO implement these functions
-            case 'SetTargetTemperatureRequest':    
-                if (!request.payload.targetTemperature.value){
-                    context.succeed(response(request.header, 'ValueOutOfRangeError', {'faultingParameter': 'targetTemperature'}))
-                }
-                setTargetTemperature(appliance_id, request.payload, function(error, payload){
-                    if(error){
-                        return context.succeed(response(request.header, error, payload));
-                    }
-                    var response = response(header, 'SetTargetTemperatureConfirmation');
-                    try{
-                        validator.validateResponse(request, response);
-                        return context.succeed(response);
-                    } catch (error){
-                        log('FATAL', error);
-                        throw(error);
-                    }
-                });
-            /**
-             * IncrementTargetTemperatureRequest 
-             */  
-            case 'IncrementTargetTemperatureRequest':
-                if (!request.payload.deltaTemperature.value){
-                    context.succeed(response(request.header, 'ValueOutOfRangeError', {'faultingParameter': 'deltaTemperature'}))
-                }
-                incrementTargetTemperature(appliance_id, request.payload, function(error, payload){
-                    if(error){
-                        return context.succeed(response(request.header, error, payload));
-                    }
-                    var response = response(header, 'IncrementTargetTemperatureConfirmation');
-                    try{
-                        validator.validateResponse(request, response);
-                        return context.succeed(response);
-                    } catch (error){
-                        log('FATAL', error);
-                        throw(error);
-                    }
-                });
-            /**
-             * DecrementTargetTemperatureRequest
-             */
-            case 'DecrementTargetTemperatureRequest':
-                if (!request.payload.deltaTemperature.value){
-                        context.succeed(response(request.header, 'ValueOutOfRangeError', {'faultingParameter': 'deltaTemperature'}))
-                }
-                decrementTargetTemperature(appliance_id, request.payload, function(error, payload){
-                    if(error){
-                        return context.succeed(response(request.header, error, payload));
-                    }
-                    var response = response(header, 'DecrementTargetTemperatureConfirmation');
-                    try{
-                        validator.validateResponse(request, response);
-                        return context.succeed(response);
-                    } catch (error){
-                        log('FATAL', error);
-                        throw(error);
-                    }
-                });
-            /**
-             * SetPercentageRequest
-             */
-            case 'SetPercentageRequest':
-                if (!request.payload.percentageState.value){
-                        context.succeed(response(request.header, 'ValueOutOfRangeError', {'faultingParameter': 'percentageState'}))
-                }
-                setPercentage(appliance_id, request.payload, function(error, payload){
-                    if(error){
-                        return context.succeed(response(request.header, error, payload));
-                    }
-                    var response = response(header, 'DecrementTargetTemperatureConfirmation');
-                    try{
-                        validator.validateResponse(request, response);
-                        return context.succeed();
-                    } catch (error){
-                        log('FATAL', error);
-                        throw(error);
-                    }
-                });
-            /**
-             * IncrementPercentageRequest
-             */
-            case 'IncrementPercentageRequest':
-                if (!request.payload.deltaPercentage.value){
-                        context.fail(response(request.header, 'ValueOutOfRangeError', {'faultingParameter': 'deltaPercentage'}))
-                }
-                incrementPercentage(appliance_id, request.payload, function(error, payload){
-                    if(error){
-                        return context.fail(response(request.header, error, payload));
-                    }
-                    var response = response(header, 'IncrementPercentageConfirmation');
-                    try{
-                        validator.validateResponse(request, response);
-                        return context.succeed();
-                    } catch (error){
-                        log('FATAL', error);
-                        throw(error);
-                    }
-                });
-            /**
-             * DecrementPercentageRequest
-             */
-            case 'DecrementPercentageRequest':
-                if (!request.payload.deltaPercentage.value){
-                            context.fail(response(request.header, 'ValueOutOfRangeError', {'faultingParameter': 'deltaPercentage'}))
-                }
-                decrementPercentage(appliance_id, request.payload, function(error, payload){
-                    if(error){
-                        return context.fail(response(request.header, error, payload));
-                    }
-                    var response = response(header, 'DecrementPercentageConfirmation');
-                    try{
-                        validator.validateResponse(request, response);
-                        return context.succeed();
-                    } catch (error){
-                        log('FATAL', error);
-                        throw(error);
-                    }
-                });
-            default: 
-                break;
+    var response_name = '';
 
-            
+    var previous_temperature = 21.0;
+    var minimum_temperature = 5.0;
+    var maximum_temperature = 30.0;
+
+    if (appliance_id === 'ThermostatAuto-001'){
+        var previous_mode = 'AUTO';
+        var target_mode = 'AUTO';
+        var response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
+    }
+        
+    else if (appliance_id === 'ThermostatHeat-001'){
+        var previous_mode = 'HEAT';
+        var target_mode = 'HEAT';
+        var response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
+    }
+    else if (appliance_id === 'ThermostatCool-001'){
+        var previous_mode = 'COOL';
+        var target_mode = 'COOL';
+        var response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
+    }
+    else if (appliance_id === 'ThermostatEco-001'){
+        var previous_mode = 'ECO';
+        var target_mode = 'ECO';
+        var response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
+    }
+    else if (appliance_id === 'ThermostatCustom-001'){
+        var previous_mode = 'CUSTOM';
+        var target_mode = 'CUSTOM';
+        var response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
+    }
+    else if (appliance_id === 'ThermostatOff-001'){
+        var previous_mode = 'OFF';
+        var target_mode = 'OFF';
+        var response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
+    }
+    else if (appliance_id === 'Lock-001'){
+        if (request_name === 'SetLockStateRequest'){
+            response_name = 'SetLockStateConfirmation';
+            payload = {'lockState': event.payload.lockState};
+        }            
+        else if (request_name === 'GetLockStateRequest'){
+            response_name = 'GetLockStateResponse'
+            payload = {'lockState': 'UNLOCKED', 'applianceResponseTimestamp': getUTCTimestamp()};
         }
-    });
+        payload = {
+            'errorInfo': {
+                'code': 'LOW_BATTERY',
+                'description': 'The requested operation cannot be completed because the device has low battery.',
+            }
+        };
+        if (response_name === 'UnableToGetValueError'){
+            header.namespace = 'Alexa.ConnectedHome.Query';
+        }
+        var header = generateResponseHeader(event,response_name);
+        var response = generateResponse(header,payload);
+    }
+    else if (isSampleErrorAppliance(appliance_id)){
+        response_name = appliance_id.replace('-001','');
+        var header = generateResponseHeader(event,response_name);
+        var payload = {}
+        if (response_name === 'ValueOutOfRangeError'){
+            payload = {
+                'minimumValue': 5.0,
+                'maximumValue': 30.0,
+            };
+        }
+        else if ( response_name === 'DependentServiceUnavailableError'){
+            payload = {
+                'dependentServiceName': 'Customer Credentials Database',
+            };
+        }
+        else if (response_name === 'TargetFirmwareOutdatedError' || response_name === 'TargetBridgeFirmwareOutdatedError'){
+            payload = {
+                'minimumFirmwareVersion': '17',
+                'currentFirmwareVersion': '6',
+            };
+        }
+        else if (response_name in ['UnableToGetValueError','UnableToSetValueError']){
+            payload = {
+                'errorInfo': {
+                    'code': 'LOW_BATTERY',
+                    'description': 'The requested operation cannot be completed because the device has low battery.',
+                }
+            };
+            if (response_name === 'UnableToGetValueError'){
+                header['namespace'] = 'Alexa.ConnectedHome.Query';
+            }
+        }
+        else if (response_name === 'UnwillingToSetValueError'){
+            payload = {
+                'errorInfo': {
+                    'code': 'ThermostatIsOff',
+                    'description': 'The requested operation is unsafe because it requires changing the mode.',
+                }
+            };
+        }
+        else if (response_name == 'RateLimitExceededError'){
+            payload = {
+                'rateLimit': '10',
+                'timeUnit': 'HOUR',
+            };
+        }
+        else if (response_name == 'NotSupportedInCurrentModeError'){
+            payload = {
+                'currentDeviceMode': 'AWAY',
+            };
+        }
+        else if (response_name == 'UnexpectedInformationReceivedError'){
+            payload = {
+                'faultingParameter': 'value',
+            };
+        }
+        response = generateResponse(header,payload);
+    }
+    else{
+        if (request_name === 'TurnOnRequest'){
+            response_name = 'TurnOnConfirmation';
+        }
+        if (request_name === 'TurnOffRequest'){
+            response_name = 'TurnOffConfirmation';
+        }
+        if (request_name === 'SetTargetTemperatureRequest'){
+            response_name = 'SetTargetTemperatureConfirmation'
+            target_temperature = event.payload.targetTemperature.value;
+            payload = {
+                'targetTemperature': {
+                    'value': target_temperature
+                },
+                'temperatureMode': {
+                    'value': 'AUTO'
+                },
+                'previousState' : {
+                    'targetTemperature':{
+                        'value': 21.0
+                    },
+                    'temperatureMode':{
+                        'value': 'AUTO'
+                    }
+                }
+            };
+        }
+        if (request_name === 'IncrementTargetTemperatureRequest'){
+            response_name = 'IncrementTargetTemperatureConfirmation';
+            delta_temperature = event.payload.deltaTemperature.value;
+            payload = {
+                'previousState': {
+                    'temperatureMode': {
+                        'value': 'AUTO'
+                    },
+                    'targetTemperature': {
+                        'value': 21.0
+                    }
+                },
+                'targetTemperature': {
+                    'value': 21.0 + delta_temperature
+                },
+                'temperatureMode': {
+                    'value': 'AUTO'
+                }
+            };
+        }      
+        if (request_name === 'DecrementTargetTemperatureRequest'){
+            response_name = 'DecrementTargetTemperatureConfirmation'
+            delta_temperature = event.payload.deltaTemperature.value;
+            payload = {
+                'previousState': {
+                    'temperatureMode': {
+                        'value': 'AUTO'
+                    },
+                    'targetTemperature': {
+                        'value': 21.0
+                    }
+                },
+                'targetTemperature': {
+                    'value': 21.0 - delta_temperature
+                },
+                'temperatureMode': {
+                    'value': 'AUTO'
+                }
+            };
+        }    
+        if (request_name === 'SetPercentageRequest'){
+            response_name = 'SetPercentageConfirmation';
+        }
+        if (request_name === 'IncrementPercentageRequest'){
+            response_name = 'IncrementPercentageConfirmation';
+        }
+        if (request_name === 'DecrementPercentageRequest'){
+            response_name = 'DecrementPercentageConfirmation';
+        }
+        if (appliance_id === 'sample-5'){
+            response_name = 'TargetOfflineError';
+        }
+        var header = generateResponseHeader(event,response_name)
+        var response = generateResponse(header,payload)
+    }
+    return response;
 }
 
 /**
@@ -371,418 +306,181 @@ function handleControl(request, context) {
 function log(title, msg) {
     console.log('[' + title + ']   -   ' + msg);
 }
-/*
-* error function
-* 
-* Parameters:
-*   header - Original request header so we can return the same.
-*   name   - The name of the error. One taken from the following list
-*            https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#Error Messages 
-*   payload - any special payload required for the error response.
-*/
-
-function response(header, name, payload){
-    var header = header;
-    header.name = name;
-    return { header: header, payload: payload};
-}
-/**
- * getDevicesFromPartnerCloud
- * 
- * Parameters:
- *  access_token - The access token passed into the request
- * 
- * Returns:
- *  List of devices attached to user's account
- */
-function getDevicesFromPartnerCloud(access_token){
-    // Look up user in canned data above
-    var result = USER_DEVICES.users.filter( function(user) {
-        return user.access_token == access_token;
-    });
-    return JSON.stringify(result[0].devices);
-}
-/**
- * validAccessToken(user_access_token)
- * 
- * Parameters:
- *  user_access_token - The token sent in the request
- * 
- * Returns:
- *  true - if found
- *  false - if not found
- */
-function validAccessToken(user_access_token){
-    /**
-     * Always returns tru for sample code
-     * You should update this method to your own access token validation 
-     */
-    return true;
-}
-/**
- * validateDevice - Stub method for checking if 
- *   - device is online
- *   - the bridge is online (assumes a hub use case) 
- *   - uncaught exception
- * 
- * callback(error) - Should form a response object using 
- * builtin functions
- */
-function validateDevice(appliance, callback){
-    /**
-     * If bridge is offline
-     */
-    bridgeOnline(appliance, function(error, payload){
-        if (error) callback(error, payload);
-    });
-    /**
-     * If device is offline
-     */
-    online(appliance, function(error, payload){
-        if (error) callback(error, payload);
-    });   
-}
-
-
-/**
- * CONTROL FUNCTIONS
- * 
- */
-
-
-/** 
- * turnOn function should be an abstract of 
- * control.
-*/
-function turnOn(appliance, callback){
-    /**
-     * Testing shim to send local events to simulate Alexa events
-     */
-    if (appliance.additionalApplianceDetails.simulateResponse){
-        log('DEBUG', 'Simulating Response: ' + appliance.additionalApplianceDetails.simulateResponse);
-        callback(appliance.additionalApplianceDetails.simulateResponse)
-    }
-    /**
-     * To hear Alexa' spoken response for the following error responses:
-     * - DriverInternalError
-     * - DependentServiceUnavailableError
-     * - TargetConnectivityUnstableError
-     * - TargetBridgeConnectivityUnstableError
-     * - TargetFirmwareOutdatedError
-     * - TargetBridgeFirmwareOutdatedError
-     * - TargetHardwareMalfunctionError
-     * - TargetBridgetHardwareMalfunctionError
-     * - RateLimitExceededError
-     * 
-     * uncomment the appropriate line belie
-     */
-    // callback('DriverInternalError');
-    // callback('DependentServiceUnavailableError');
-    // callback('TargetConnectivityUnstableError');
-    // callback('TargetBridgeConnectivityUnstableError');
-    // callback('TargetFirmwareOutdatedError');
-    // callback('TargetBridgeFirmwareOutdatedError');
-    // callback('TargetHardwareMalfunctionError');
-    // callback('TargetBridgetHardwareMalfunctionError');
-    // callback('RateLimitExceededError');
-}
-/** 
- * turnOff function should be an abstract of 
- * control.
-*/
-function turnOff(appliance, callback){
-    /**
-     * Testing shim to send local events to simulate Alexa events
-     * @TODO: Link to blog post about sending local events
-     */
-    if (appliance.additionalApplianceDetails.simulateResponse){
-        log('DEBUG', 'Simulating Response: ' + appliance.additionalApplianceDetails.simulateResponse);
-        callback(appliance.additionalApplianceDetails.simulateResponse)
-    }
-    /**
-     * To hear Alexa' spoken response for the following error responses:
-     * - DriverInternalError
-     * - DependentServiceUnavailableError
-     * - TargetConnectivityUnstableError
-     * - TargetBridgeConnectivityUnstableError
-     * - TargetFirmwareOutdatedError
-     * - TargetBridgeFirmwareOutdatedError
-     * - TargetHardwareMalfunctionError
-     * - TargetBridgetHardwareMalfunctionError
-     * - RateLimitExceededError
-     */
-
-    // callback('DriverInternalError');
-    // callback('DependentServiceUnavailableError');
-    // callback('TargetConnectivityUnstableError');
-    // callback('TargetBridgeConnectivityUnstableError');
-    // callback('TargetFirmwareOutdatedError');
-    // callback('TargetBridgeFirmwareOutdatedError');
-    // callback('TargetHardwareMalfunctionError');
-    // callback('TargetBridgetHardwareMalfunctionError');
-    // callback('RateLimitExceededError');
-}
-function setTargetTemperature(appliance_id, payload, callback){
-    /**
-     * Testing shim to send local events to simulate Alexa events
-     */
-    if (appliance.additionalApplianceDetails.simulateResponse){
-        log('DEBUG', 'Simulating Response: ' + appliance.additionalApplianceDetails.simulateResponse);
-        callback(appliance.additionalApplianceDetails.simulateResponse)
-    }
-    /**
-     * To hear Alexa' spoken response for the following error responses:
-     * - DriverInternalError
-     * - DependentServiceUnavailableError
-     * - TargetConnectivityUnstableError
-     * - TargetBridgeConnectivityUnstableError
-     * - TargetFirmwareOutdatedError
-     * - TargetBridgeFirmwareOutdatedError
-     * - TargetHardwareMalfunctionError
-     * - TargetBridgetHardwareMalfunctionError
-     * - RateLimitExceededError
-     * 
-     * uncomment the appropriate line belie
-     */
-    // callback('DriverInternalError');
-    // callback('DependentServiceUnavailableError');
-    // callback('TargetConnectivityUnstableError');
-    // callback('TargetBridgeConnectivityUnstableError');
-    // callback('TargetFirmwareOutdatedError');
-    // callback('TargetBridgeFirmwareOutdatedError');
-    // callback('TargetHardwareMalfunctionError');
-    // callback('TargetBridgetHardwareMalfunctionError');
-    // callback('RateLimitExceededError');
-}
-function incrementTargetTemperature(appliance_id, payload, callback){
-  /**
-     * Testing shim to send local events to simulate Alexa events
-     */
-    if (appliance.additionalApplianceDetails.simulateResponse){
-        log('DEBUG', 'Simulating Response: ' + appliance.additionalApplianceDetails.simulateResponse);
-        callback(appliance.additionalApplianceDetails.simulateResponse)
-    }
-    /**
-     * To hear Alexa' spoken response for the following error responses:
-     * - DriverInternalError
-     * - DependentServiceUnavailableError
-     * - TargetConnectivityUnstableError
-     * - TargetBridgeConnectivityUnstableError
-     * - TargetFirmwareOutdatedError
-     * - TargetBridgeFirmwareOutdatedError
-     * - TargetHardwareMalfunctionError
-     * - TargetBridgetHardwareMalfunctionError
-     * - RateLimitExceededError
-     * 
-     * uncomment the appropriate line belie
-     */
-    // callback('DriverInternalError');
-    // callback('DependentServiceUnavailableError');
-    // callback('TargetConnectivityUnstableError');
-    // callback('TargetBridgeConnectivityUnstableError');
-    // callback('TargetFirmwareOutdatedError');
-    // callback('TargetBridgeFirmwareOutdatedError');
-    // callback('TargetHardwareMalfunctionError');
-    // callback('TargetBridgetHardwareMalfunctionError');
-    // callback('RateLimitExceededError');
-}
-function decrementTargetTemperature(appliance_id, payload, callback){
-  /**
-     * Testing shim to send local events to simulate Alexa events
-     */
-    if (appliance.additionalApplianceDetails.simulateResponse){
-        log('DEBUG', 'Simulating Response: ' + appliance.additionalApplianceDetails.simulateResponse);
-        callback(appliance.additionalApplianceDetails.simulateResponse)
-    }
-    /**
-     * To hear Alexa' spoken response for the following error responses:
-     * - DriverInternalError
-     * - DependentServiceUnavailableError
-     * - TargetConnectivityUnstableError
-     * - TargetBridgeConnectivityUnstableError
-     * - TargetFirmwareOutdatedError
-     * - TargetBridgeFirmwareOutdatedError
-     * - TargetHardwareMalfunctionError
-     * - TargetBridgetHardwareMalfunctionError
-     * - RateLimitExceededError
-     * 
-     * uncomment the appropriate line belie
-     */
-    // callback('DriverInternalError');
-    // callback('DependentServiceUnavailableError');
-    // callback('TargetConnectivityUnstableError');
-    // callback('TargetBridgeConnectivityUnstableError');
-    // callback('TargetFirmwareOutdatedError');
-    // callback('TargetBridgeFirmwareOutdatedError');
-    // callback('TargetHardwareMalfunctionError');
-    // callback('TargetBridgetHardwareMalfunctionError');
-    // callback('RateLimitExceededError');
-}
-function setPercentage(appliance_id, payload, callback){
-  /**
-     * Testing shim to send local events to simulate Alexa events
-     */
-    if (appliance.additionalApplianceDetails.simulateResponse){
-        log('DEBUG', 'Simulating Response: ' + appliance.additionalApplianceDetails.simulateResponse);
-        callback(appliance.additionalApplianceDetails.simulateResponse)
-    }
-    /**
-     * To hear Alexa' spoken response for the following error responses:
-     * - DriverInternalError
-     * - DependentServiceUnavailableError
-     * - TargetConnectivityUnstableError
-     * - TargetBridgeConnectivityUnstableError
-     * - TargetFirmwareOutdatedError
-     * - TargetBridgeFirmwareOutdatedError
-     * - TargetHardwareMalfunctionError
-     * - TargetBridgetHardwareMalfunctionError
-     * - RateLimitExceededError
-     * 
-     * uncomment the appropriate line belie
-     */
-    // callback('DriverInternalError');
-    // callback('DependentServiceUnavailableError');
-    // callback('TargetConnectivityUnstableError');
-    // callback('TargetBridgeConnectivityUnstableError');
-    // callback('TargetFirmwareOutdatedError');
-    // callback('TargetBridgeFirmwareOutdatedError');
-    // callback('TargetHardwareMalfunctionError');
-    // callback('TargetBridgetHardwareMalfunctionError');
-    // callback('RateLimitExceededError');
-}
-function incrementPercentage(appliance_id, payload, callback){
-  /**
-     * Testing shim to send local events to simulate Alexa events
-     */
-    if (appliance.additionalApplianceDetails.simulateResponse){
-        log('DEBUG', 'Simulating Response: ' + appliance.additionalApplianceDetails.simulateResponse);
-        callback(appliance.additionalApplianceDetails.simulateResponse)
-    }
-    /**
-     * To hear Alexa' spoken response for the following error responses:
-     * - DriverInternalError
-     * - DependentServiceUnavailableError
-     * - TargetConnectivityUnstableError
-     * - TargetBridgeConnectivityUnstableError
-     * - TargetFirmwareOutdatedError
-     * - TargetBridgeFirmwareOutdatedError
-     * - TargetHardwareMalfunctionError
-     * - TargetBridgetHardwareMalfunctionError
-     * - RateLimitExceededError
-     * 
-     * uncomment the appropriate line belie
-     */
-    // callback('DriverInternalError');
-    // callback('DependentServiceUnavailableError');
-    // callback('TargetConnectivityUnstableError');
-    // callback('TargetBridgeConnectivityUnstableError');
-    // callback('TargetFirmwareOutdatedError');
-    // callback('TargetBridgeFirmwareOutdatedError');
-    // callback('TargetHardwareMalfunctionError');
-    // callback('TargetBridgetHardwareMalfunctionError');
-    // callback('RateLimitExceededError');
-}
-function decrementPercentage(appliance_id, payload, callback){
-  /**
-     * Testing shim to send local events to simulate Alexa events
-     */
-    if (appliance.additionalApplianceDetails.simulateResponse){
-        log('DEBUG', 'Simulating Response: ' + appliance.additionalApplianceDetails.simulateResponse);
-        callback(appliance.additionalApplianceDetails.simulateResponse)
-    }
-    /**
-     * To hear Alexa' spoken response for the following error responses:
-     * - DriverInternalError
-     * - DependentServiceUnavailableError
-     * - TargetConnectivityUnstableError
-     * - TargetBridgeConnectivityUnstableError
-     * - TargetFirmwareOutdatedError
-     * - TargetBridgeFirmwareOutdatedError
-     * - TargetHardwareMalfunctionError
-     * - TargetBridgetHardwareMalfunctionError
-     * - RateLimitExceededError
-     * 
-     * uncomment the appropriate line belie
-     */
-    // callback('DriverInternalError');
-    // callback('DependentServiceUnavailableError');
-    // callback('TargetConnectivityUnstableError');
-    // callback('TargetBridgeConnectivityUnstableError');
-    // callback('TargetFirmwareOutdatedError');
-    // callback('TargetBridgeFirmwareOutdatedError');
-    // callback('TargetHardwareMalfunctionError');
-    // callback('TargetBridgetHardwareMalfunctionError');
-    // callback('RateLimitExceededError');
-}
-/**
- * bridgeOnline - Stub function 
- * 
- * To hear Alexa' spoken response for TargetBridgeOfflineError response
- *   'TargetOfflineError'
- * Else return null
- * 
- * To use local events, please see 
- * @TODO: Link to blog post about sending local events
- */
-function bridgeOnline(appliance, callback){
-    /**
-     * Testing shim to send events to simulate events
-     * @TODO: Link to blog post about sending local events
-     */
-    if (appliance.additionalApplianceDetails.simulateResponse){
-        log('DEBUG', 'Simulating Response: ' + appliance.additionalApplianceDetails.simulateResponse);
-        callback(appliance.additionalApplianceDetails.simulateResponse)
-    }
-    /**
-     * To hear Alexa' spoken response for TargetBridgeOfflineError response
-     * Uncomment the following line which this will return the error for all requests
-     */
-    
-    // callback('TargetBridgeOfflineError');
-}
-/**
- * online - Stub function 
- * 
- * To hear Alexa' spoken response for TargetOfflineError response
- *  return 'TargetOfflineError'
- * Else return null
- */
-function online(appliance, callback){
-    /**
-     * Testing shim to send events to simulate events
-     * @TODO: Link to blog post about sending local events
-     */
-    if (appliance.additionalApplianceDetails.simulateResponse){
-        log('DEBUG', 'Simulating Response: ' + appliance.additionalApplianceDetails.simulateResponse);
-        callback(appliance.additionalApplianceDetails.simulateResponse)
-    }
-    /**
-     * To hear Alexa' spoken response for TargetOfflineError response
-     * Uncomment the following line
-     * 
-     * callback('TargetOfflineError');
-     */
-
-}
-/**
- * List of available directive names for control
- */
-var APPLIANCE_CONTROLS = [
-    'TurnOnRequest',
-    'TurnOffRequest',
-    'SetTargetTemperatureRequest',
-    'IncrementTargetTemperatureRequest',
-    'DecrementTargetTemperatureRequest',
-    'SetPercentageRequest',
-    'IncrementPercentageRequest',
-    'DecrementPercentageRequest' 
+function generateSampleErrorAppliances(){
+    // this should be in sync with same list in validation.py
+    var VALID_CONTROL_ERROR_RESPONSE_NAMES = [
+        'ValueOutOfRangeError',
+        'TargetOfflineError',
+        'BridgeOfflineError',
+        'NoSuchTargetError',
+        'DriverInternalError',
+        'DependentServiceUnavailableError',
+        'TargetConnectivityUnstableError',
+        'TargetBridgeConnectivityUnstableError',
+        'TargetFirmwareOutdatedError',
+        'TargetBridgeFirmwareOutdatedError',
+        'TargetHardwareMalfunctionError',
+        'TargetBridgeHardwareMalfunctionError',
+        'UnableToGetValueError',
+        'UnableToSetValueError',
+        'UnwillingToSetValueError',
+        'RateLimitExceededError',
+        'NotSupportedInCurrentModeError',
+        'ExpiredAccessTokenError',
+        'InvalidAccessTokenError',
+        'UnsupportedTargetError',
+        'UnsupportedOperationError',
+        'UnsupportedTargetSettingError',
+        'UnexpectedInformationReceivedError'
     ];
-/**
- * Mock data for devices to be discovered
- * 
- * For more information on the the discovered appliance response please see
- * https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#discoverappliancesresponse
- */
+    var sample_error_appliances = [];
+    var device_number = 100;
+
+    VALID_CONTROL_ERROR_RESPONSE_NAMES.forEach( function(error){
+        sample_error_appliance = {
+            'applianceId': error + '-001',
+            'manufacturerName': SAMPLE_MANUFACTURER,
+            'modelName': 'Switch',
+            'version': '1',
+            'friendlyName': 'Device ' + device_number,
+            'friendlyDescription': 'Alexa turn on Device ' + device_number + '. Response: ' + error,
+            'isReachable': True,
+            'actions': [
+                'turnOn',
+                'turnOff',
+            ],
+            'additionalApplianceDetails': {}
+        };
+
+        if (error === 'ValueOutOfRangeError'){
+            sample_error_appliance.friendlyDescription = 'Alexa set Device ' + device_number + ' to 80 degrees. Response: ' + error;
+            sample_error_appliance.modelName = 'Thermostat';
+            sample_error_appliance.actions = [
+                'setTargetTemperature',
+                'incrementTargetTemperature',
+                'decrementTargetTemperature',
+            ];
+        }
+        sample_error_appliances.append(sample_error_appliance);
+        device_number = device_number + 1;
+    });
+    return sample_error_appliances;
+}
+function isSampleErrorAppliance(appliance_id){
+    var sample_error_appliances = generateSampleErrorAppliances();
+    for (sample_error_appliance in sample_error_appliances){
+        if (sample_error_appliance.applianceId == appliance_id) return true;
+    }
+    return false;
+}
+
+function generateResponseHeader(request,response_name){
+    header = {
+        'namespace': request.header.namespace,
+        'name': response_name,
+        'payloadVersion': '2',
+        'messageId': request.header.messageId        
+    }
+    return header;
+}
+function generateResponse(header,payload){
+    response = {
+        'header': header,
+        'payload': payload,
+    };
+    return response;
+}
+function generateTemperatureResponse(request,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature){
+    var request_name = request.header.name;
+    var message_id = request.header.messageId;
+    var response_name, target_temperature, payload;
+    // valid request    
+    if (request_name in ['SetTargetTemperatureRequest','IncrementTargetTemperatureRequest','DecrementTargetTemperatureRequest']){
+        if (request_name === 'SetTargetTemperatureRequest'){
+            response_name = 'SetTargetTemperatureConfirmation';
+            target_temperature = request.payload.targetTemperature.value;
+        if (request_name === 'IncrementTargetTemperatureRequest'){
+            response_name = 'IncrementTargetTemperatureConfirmation';
+            target_temperature = previous_temperature + request.payload.deltaTemperature.value;
+        if (request_name === 'DecrementTargetTemperatureRequest'){
+            response_name = 'DecrementTargetTemperatureConfirmation';
+            target_temperature = previous_temperature - request.payload.deltaTemperature.value;
+        }
+        // valid target temperature
+        if (target_temperature <= maximum_temperature && target_temperature >= minimum_temperature){
+            payload = {
+                'targetTemperature': {
+                    'value': target_temperature
+                },
+                'temperatureMode': {
+                    'value': target_mode
+                },
+                'previousState' : {
+                    'targetTemperature':{
+                        'value': previous_temperature
+                    },
+                    'temperatureMode':{
+                        'value': previous_mode
+                    }
+                }        
+            };
+        }
+        else{
+            response_name = 'ValueOutOfRangeError';
+            payload = {
+                'minimumValue': 5.0,
+                'maximumValue': 30.0,
+            };
+        }
+    }
+    else if (request_name === 'GetTemperatureReadingRequest'){
+        response_name = 'GetTemperatureReadingResponse';
+        payload = {
+            'temperatureReading': {
+                'value': 21.00,
+            }
+        };
+    }
+    else if (request_name == 'GetTargetTemperatureRequest'){
+        response_name = 'GetTargetTemperatureResponse';
+        payload = {
+            'applianceResponseTimestamp': getUTCTimestamp(),
+            'temperatureMode': {
+                'value': target_mode,
+                'friendlyName': '',
+            }
+        };
+
+        if (target_mode in ['HEAT','COOL','ECO','CUSTOM']){
+            payload['targetTemperature'] = {
+                'value': 21.00,
+            };
+        }
+        else if (target_mode  === 'AUTO'){
+            payload.coolingTargetTemperature = {
+                'value': 23.00
+            };
+            payload.heatingTargetTemperature = {
+                'value': 19.00
+            };
+        }
+        if (target_mode == 'CUSTOM')
+            payload.temperatureMode.friendlyName = 'Manufacturer custom mode';
+    }
+    else{
+        response_name = 'UnexpectedInformationReceivedError;
+        payload = {
+            'faultingParameter': 'request.name: ' + request_name
+        };
+    }
+    header = generateResponseHeader(request,response_name);
+    response = generateResponse(header,payload);
+    return response
+}
+
+function getUTCTimestamp(seconds=None){
+    return new Date().getTime();
+}
 var SAMPLE_MANUFACTURER = 'Sample Manufacturer'
 var SAMPLE_APPLIANCES = [
         {
@@ -792,7 +490,7 @@ var SAMPLE_APPLIANCES = [
             'version': '1',
             'friendlyName': 'Sample Switch',
             'friendlyDescription': 'Switch by ' + SAMPLE_MANUFACTURER,
-            'isReachable': True,
+            'isReachable': true,
             'actions': [
                 'turnOn',
                 'turnOff',
@@ -808,7 +506,7 @@ var SAMPLE_APPLIANCES = [
             'version': '1',
             'friendlyName': 'Sample Dimmer',
             'friendlyDescription': 'Dimmer by ' + SAMPLE_MANUFACTURER,
-            'isReachable': True,
+            'isReachable': true,
             'actions': [
                 'turnOn',
                 'turnOff',
@@ -827,7 +525,7 @@ var SAMPLE_APPLIANCES = [
             'version': '1',
             'friendlyName': 'Sample Fan',
             'friendlyDescription': 'Fan by ' + SAMPLE_MANUFACTURER,
-            'isReachable': True,
+            'isReachable': true,
             'actions': [
                 'turnOn',
                 'turnOff',
@@ -846,7 +544,7 @@ var SAMPLE_APPLIANCES = [
             'version': '1',
             'friendlyName': 'Sample Switch Unreachable',
             'friendlyDescription': 'Switch by ' + SAMPLE_MANUFACTURER,
-            'isReachable': False,
+            'isReachable': false,
             'actions': [
                 'turnOn',
                 'turnOff',
@@ -862,7 +560,7 @@ var SAMPLE_APPLIANCES = [
             'version': '1',
             'friendlyName': 'Amazon Basement',
             'friendlyDescription': 'Thermostat in AUTO mode and reachable',
-            'isReachable': True,
+            'isReachable': true,
             'actions': [
                 'setTargetTemperature',
                 'incrementTargetTemperature',
@@ -877,7 +575,7 @@ var SAMPLE_APPLIANCES = [
             'version': '1',
             'friendlyName': 'Amazon Heater',
             'friendlyDescription': 'Thermostat in HEAT mode and reachable',
-            'isReachable': True,
+            'isReachable': true,
             'actions': [
                 'setTargetTemperature',
                 'incrementTargetTemperature',
@@ -892,7 +590,7 @@ var SAMPLE_APPLIANCES = [
             'version': '1',
             'friendlyName': 'Amazon Cooler',
             'friendlyDescription': 'Thermostat in COOL mode and reachable',
-            'isReachable': True,
+            'isReachable': true,
             'actions': [
                 'setTargetTemperature',
                 'incrementTargetTemperature',
@@ -900,5 +598,5 @@ var SAMPLE_APPLIANCES = [
             ],
             'additionalApplianceDetails': {}
         }
-    ];
-};
+];
+

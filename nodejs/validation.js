@@ -230,9 +230,6 @@ function validateResponse(request, response){
     if (isEmpty(request)){
         throw new Error(generateErrorMessage('Request', 'request must not be empty', request));
     }
-    if (!request instanceof Array){
-        throw new Error(generateErrorMessage('Request','request must be a Array',request));
-    }
     try{
         requestNamespace = request.header.namespace;
     }
@@ -246,9 +243,6 @@ function validateResponse(request, response){
     }
     if (isEmpty(response)){
         throw new Error(generateErrorMessage('Response', 'response must not be empty', response));
-    }
-    if (!(response instanceof Array)){
-        throw new Error(generateErrorMessage('Response','request must be a Array',request));
     }
     REQUIRED_RESPONSE_KEYS.forEach( function(required_key){
         if(!(required_key in response)){
@@ -833,3 +827,5 @@ function isInArray(array, object) {
     }
     return array.indexOf(object) > -1;
 }
+exports.validateContext = validateContext;
+exports.validateResponse = validateResponse;
