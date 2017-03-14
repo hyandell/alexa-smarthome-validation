@@ -24,28 +24,26 @@ logger.setLevel(logging.INFO)
 SAMPLE_MANUFACTURER = 'Sample Manufacturer'
 SAMPLE_APPLIANCES = [
     {
-        'applianceId': 'switch-001',
+        'applianceId': 'Switch-001',
         'manufacturerName': SAMPLE_MANUFACTURER,
         'modelName': 'Switch',
         'version': '1',
-        'friendlyName': 'Sample Switch',
-        'friendlyDescription': 'Switch by ' + SAMPLE_MANUFACTURER,
+        'friendlyName': 'Switch',
+        'friendlyDescription': 'On/off switch that is functional and reachable',
         'isReachable': True,
         'actions': [
             'turnOn',
             'turnOff',
         ],
-        'additionalApplianceDetails': {
-            'extraDetail1': 'This is an on/off switch that is online and reachable',
-        }        
+        'additionalApplianceDetails': {}        
     },
     {
-        'applianceId': 'dimmer-001',
+        'applianceId': 'Dimmer-001',
         'manufacturerName': SAMPLE_MANUFACTURER,
         'modelName': 'Dimmer',
         'version': '1',
-        'friendlyName': 'Sample Dimmer',
-        'friendlyDescription': 'Dimmer by ' + SAMPLE_MANUFACTURER,
+        'friendlyName': 'Upstairs Dimmer',
+        'friendlyDescription': 'Dimmer that is functional and reachable',
         'isReachable': True,
         'actions': [
             'turnOn',
@@ -54,17 +52,15 @@ SAMPLE_APPLIANCES = [
             'incrementPercentage',
             'decrementPercentage',
         ],
-        'additionalApplianceDetails': {
-            'extraDetail1': 'This is a dimmer that is online and reachable',
-        }        
+        'additionalApplianceDetails': {}        
     },
     {
-        'applianceId': 'fan-001',
+        'applianceId': 'Fan-001',
         'manufacturerName': SAMPLE_MANUFACTURER,
         'modelName': 'Fan',
         'version': '1',
-        'friendlyName': 'Sample Fan',
-        'friendlyDescription': 'Fan by ' + SAMPLE_MANUFACTURER,
+        'friendlyName': 'Upstairs Fan',
+        'friendlyDescription': 'Fan that is functional and reachable',
         'isReachable': True,
         'actions': [
             'turnOn',
@@ -73,32 +69,28 @@ SAMPLE_APPLIANCES = [
             'incrementPercentage',
             'decrementPercentage',
         ],
-        'additionalApplianceDetails': {
-            'extraDetail1': 'This is a fan that is online and reachable',
-        }        
+        'additionalApplianceDetails': {}        
     },
     {
-        'applianceId': 'switch-unreachable-001',
+        'applianceId': 'SwitchUnreachable-001',
         'manufacturerName': SAMPLE_MANUFACTURER,
         'modelName': 'Switch',
         'version': '1',
-        'friendlyName': 'Sample Switch Unreachable',
-        'friendlyDescription': 'Switch by ' + SAMPLE_MANUFACTURER,
+        'friendlyName': 'Switch Unreachable',
+        'friendlyDescription': 'Switch that is unreachable and shows (Offline)',
         'isReachable': False,
         'actions': [
             'turnOn',
             'turnOff',
         ],
-        'additionalApplianceDetails': {
-            'extraDetail1': 'This is an on/off switch that is not reachable and should show as offline in the Alexa app',
-        }
+        'additionalApplianceDetails': {}
     },
     {
         'applianceId': 'ThermostatAuto-001',
         'manufacturerName': SAMPLE_MANUFACTURER,
         'modelName': 'Thermostat',
         'version': '1',
-        'friendlyName': 'Amazon Thermostat 1',
+        'friendlyName': 'Family Room',
         'friendlyDescription': 'Thermostat in AUTO mode and reachable',
         'isReachable': True,
         'actions': [
@@ -106,7 +98,7 @@ SAMPLE_APPLIANCES = [
             'incrementTargetTemperature',
             'decrementTargetTemperature',
             'getTargetTemperature',
-            'getTemperatureReading',
+            'getTemperatureReading',            
         ],
         'additionalApplianceDetails': {}
     },
@@ -115,7 +107,7 @@ SAMPLE_APPLIANCES = [
         'manufacturerName': SAMPLE_MANUFACTURER,
         'modelName': 'Thermostat',
         'version': '1',
-        'friendlyName': 'Amazon Thermostat 2',
+        'friendlyName': 'Guestroom',
         'friendlyDescription': 'Thermostat in HEAT mode and reachable',
         'isReachable': True,
         'actions': [
@@ -132,7 +124,7 @@ SAMPLE_APPLIANCES = [
         'manufacturerName': SAMPLE_MANUFACTURER,
         'modelName': 'Thermostat',
         'version': '1',
-        'friendlyName': 'Amazon Thermostat 3',
+        'friendlyName': 'Hallway',
         'friendlyDescription': 'Thermostat in COOL mode and reachable',
         'isReachable': True,
         'actions': [
@@ -149,7 +141,7 @@ SAMPLE_APPLIANCES = [
         'manufacturerName': SAMPLE_MANUFACTURER,
         'modelName': 'Thermostat',
         'version': '1',
-        'friendlyName': 'Amazon Thermostat 4',
+        'friendlyName': 'Kitchen',
         'friendlyDescription': 'Thermostat in ECO mode and reachable',
         'isReachable': True,
         'actions': [
@@ -166,7 +158,7 @@ SAMPLE_APPLIANCES = [
         'manufacturerName': SAMPLE_MANUFACTURER,
         'modelName': 'Thermostat',
         'version': '1',
-        'friendlyName': 'Amazon Thermostat 5',
+        'friendlyName': 'Laundry Room',
         'friendlyDescription': 'Thermostat in CUSTOM mode and reachable',
         'isReachable': True,
         'actions': [
@@ -183,7 +175,7 @@ SAMPLE_APPLIANCES = [
         'manufacturerName': SAMPLE_MANUFACTURER,
         'modelName': 'Thermostat',
         'version': '1',
-        'friendlyName': 'Amazon Thermostat 6',
+        'friendlyName': 'Living Room',
         'friendlyDescription': 'Thermostat in OFF mode and reachable',
         'isReachable': True,
         'actions': [
@@ -200,7 +192,7 @@ SAMPLE_APPLIANCES = [
         'manufacturerName': SAMPLE_MANUFACTURER,
         'modelName': 'Lock',
         'version': '1',
-        'friendlyName': 'Amazon Lock',
+        'friendlyName': 'Door',
         'friendlyDescription': 'Lock that is functional and reachable',
         'isReachable': True,
         'actions': [
@@ -209,7 +201,6 @@ SAMPLE_APPLIANCES = [
         ],
         'additionalApplianceDetails': {}
     },
-
 ]
 
 def lambda_handler(event,context):
@@ -299,16 +290,6 @@ def handleControl(event,context):
                 'lockState': 'UNLOCKED',
                 'applianceResponseTimestamp': getUTCTimestamp()
             }
-
-
-        payload = {
-            'errorInfo': {
-                'code': 'LOW_BATTERY',
-                'description': 'The requested operation cannot be completed because the device has low battery.',
-            }
-        }
-        if response_name == 'UnableToGetValueError': header['namespace'] = 'Alexa.ConnectedHome.Query'
-
         header = generateResponseHeader(event,response_name)
         response = generateResponse(header,payload)
 
@@ -330,14 +311,21 @@ def handleControl(event,context):
                 'minimumFirmwareVersion': '17',
                 'currentFirmwareVersion': '6',
             }
-        elif response_name in ['UnableToGetValueError','UnableToSetValueError']:
+        elif response_name.startswith('UnableToGetValueError') or response_name.startswith('UnableToSetValueError'):
+            if response_name.startswith('UnableToGetValueError'):
+                code = response_name.replace('UnableToGetValueError-','')
+                header['namespace'] = 'Alexa.ConnectedHome.Query'
+                header['name'] = 'UnableToGetValueError'
+            else:
+                code = response_name.replace('UnableToSetValueError-','')
+                header['name'] = 'UnableToSetValueError'
             payload = {
                 'errorInfo': {
-                    'code': 'LOW_BATTERY',
-                    'description': 'The requested operation cannot be completed because the device has low battery.',
+                    'code': code,
+                    'description': 'The requested operation cannot be completed because the device is ' + code,
                 }
             }
-            if response_name == 'UnableToGetValueError': header['namespace'] = 'Alexa.ConnectedHome.Query'
+            
         elif response_name == 'UnwillingToSetValueError':
             payload = {
                 'errorInfo': {
@@ -426,7 +414,7 @@ def handleControl(event,context):
         if request_name == 'IncrementPercentageRequest': response_name = 'IncrementPercentageConfirmation'
         if request_name == 'DecrementPercentageRequest': response_name = 'DecrementPercentageConfirmation'
         
-        if appliance_id == 'sample-5':
+        if appliance_id == 'SwitchUnreachable-001':
             response_name = 'TargetOfflineError'
     
         header = generateResponseHeader(event,response_name)
@@ -463,35 +451,75 @@ def generateSampleErrorAppliances():
         'UnexpectedInformationReceivedError'
     ]
     sample_error_appliances = []
-    device_number = 100
+    
+    device_number = 1
 
     for error in VALID_CONTROL_ERROR_RESPONSE_NAMES:
-        sample_error_appliance = {
-            'applianceId': error + '-001',
-            'manufacturerName': SAMPLE_MANUFACTURER,
-            'modelName': 'Switch',
-            'version': '1',
-            'friendlyName': 'Device ' + str(device_number),
-            'friendlyDescription': 'Alexa turn on Device ' + str(device_number) + '. Response: ' + error,
-            'isReachable': True,
-            'actions': [
-                'turnOn',
-                'turnOff',
-            ],
-            'additionalApplianceDetails': {}
-        }
-
-        if error == 'ValueOutOfRangeError':
-            sample_error_appliance['friendlyDescription'] = 'Alexa set Device ' + str(device_number) + ' to 80 degrees. Response: ' + error
-            sample_error_appliance['modelName'] = 'Thermostat'
-            sample_error_appliance['actions'] = [
-                'setTargetTemperature',
-                'incrementTargetTemperature',
-                'decrementTargetTemperature',
+        if error in ['UnableToGetValueError','UnableToSetValueError']:
+            VALID_UNABLE_ERROR_INFO_CODES = [
+                'DEVICE_AJAR',
+                'DEVICE_BUSY',
+                'DEVICE_JAMMED',
+                'DEVICE_OVERHEATED',
+                'HARDWARE_FAILURE',
+                'LOW_BATTERY',
+                'NOT_CALIBRATED'
             ]
+            for code in VALID_UNABLE_ERROR_INFO_CODES:
+                friendly_name = generateErrorFriendlyName(device_number) + ' door'
+                if error == 'UnableToGetValueError':
+                    friendly_description = 'Utterance: Alexa, is ' + friendly_name + ' locked? Response: ' + error + ' code: ' + code    
+                else:
+                    friendly_description = 'Utterance: Alexa, lock ' + friendly_name + '. Response: ' + error + ' code: ' + code    
 
-        sample_error_appliances.append(sample_error_appliance)
-        device_number = device_number + 1
+                sample_error_appliance = {
+                    'applianceId': error + '-' + code + '-001',
+                    'manufacturerName': SAMPLE_MANUFACTURER,
+                    'modelName': 'Lock',
+                    'version': '1',
+                    'friendlyName': friendly_name,
+                    'friendlyDescription': friendly_description,
+                    'isReachable': True,
+                    'actions': [
+                        'setLockState',
+                        'getLockState',                        
+                    ],
+                    'additionalApplianceDetails': {}
+                }
+
+                sample_error_appliances.append(sample_error_appliance)
+                device_number = device_number + 1
+
+        else:
+            friendly_name = generateErrorFriendlyName(device_number)
+            friendly_description = 'Utterance: Alexa, turn on ' + friendly_name + '. Response: ' + error    
+
+            sample_error_appliance = {
+                'applianceId': error + '-001',
+                'manufacturerName': SAMPLE_MANUFACTURER,
+                'modelName': 'Switch',
+                'version': '1',
+                'friendlyName': friendly_name,
+                'friendlyDescription': friendly_description,
+                'isReachable': True,
+                'actions': [
+                    'turnOn',
+                    'turnOff',                        
+                ],
+                'additionalApplianceDetails': {}
+            }
+
+            if error == 'ValueOutOfRangeError':
+                sample_error_appliance['friendlyDescription'] = 'Utterance: Alexa, set ' + friendly_name + ' to 80 degrees. Response: ' + error
+                sample_error_appliance['modelName'] = 'Thermostat'
+                sample_error_appliance['actions'] = [
+                    'setTargetTemperature',
+                    'incrementTargetTemperature',
+                    'decrementTargetTemperature',
+                ]
+
+            sample_error_appliances.append(sample_error_appliance)
+            device_number = device_number + 1
 
     return sample_error_appliances
 
@@ -533,30 +561,22 @@ def generateTemperatureResponse(request,previous_temperature,previous_mode,targe
             response_name = 'DecrementTargetTemperatureConfirmation'
             target_temperature = previous_temperature - request['payload']['deltaTemperature']['value']
 
-        # valid target temperature
-        if target_temperature <= maximum_temperature and target_temperature >= minimum_temperature:
-            payload = {
-                'targetTemperature': {
-                    'value': target_temperature
+        payload = {
+            'targetTemperature': {
+                'value': target_temperature
+            },
+            'temperatureMode': {
+                'value': target_mode
+            },
+            'previousState' : {
+                'targetTemperature':{
+                    'value': previous_temperature
                 },
-                'temperatureMode': {
-                    'value': target_mode
-                },
-                'previousState' : {
-                    'targetTemperature':{
-                        'value': previous_temperature
-                    },
-                    'temperatureMode':{
-                        'value': previous_mode
-                    }
-                }        
-            }
-        else:
-            response_name = 'ValueOutOfRangeError'
-            payload = {
-                'minimumValue': 5.0,
-                'maximumValue': 30.0,
-            }
+                'temperatureMode':{
+                    'value': previous_mode
+                }
+            }        
+        }
     elif request_name == 'GetTemperatureReadingRequest':
         response_name = 'GetTemperatureReadingResponse'
         payload = {
@@ -600,6 +620,9 @@ def generateTemperatureResponse(request,previous_temperature,previous_mode,targe
     header = generateResponseHeader(request,response_name)
     response = generateResponse(header,payload)
     return response
+
+def generateErrorFriendlyName(device_number):
+    return 'Device ' + str(device_number)
 
 
 """Utility functions."""
