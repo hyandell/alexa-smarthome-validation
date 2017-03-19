@@ -31,24 +31,24 @@ language governing permissions and limitations under the License.
  * Main entry point.
  * Incoming events from Alexa service through Smart Home API are all handled by this function
  */
-var validator = require('./validation.js');
+var validator = require('validation');
 
 exports.handler = function(request, context) {  
     try{
-        // @TODO uncomment and test in lambda validator.validateContext(context);
+        validator.validateContext();
         var resp = {};
-       
         if (request.header.namespace === 'Alexa.ConnectedHome.Discovery'){
-             resp = handleDiscovery(request, context);
+            resp = handleDiscovery(request, context);
         }
-        if (request.header.namespace === 'Alexa.ConnectedHome.Control' || request.header.namespace === 'Alexa.ConnectedHome.Query')     
+        if (request.header.namespace === 'Alexa.ConnectedHome.Control' || request.header.namespace === 'Alexa.ConnectedHome.Query'){
             resp = handleControl(request, context);
+        }
         validator.validateResponse(request, resp);   
         context.succeed(resp);
-        } catch(err){
-            log('ERROR', err);
-            throw err;
-        }
+    } catch(err){
+        log('ERROR', err);
+        throw err;
+    }
 };
 /**
  * This method is invoked when we receive a "Discovery" message from Alexa Smart Home Skill.
@@ -73,25 +73,12 @@ exports.handler = function(request, context) {
  */
 function handleDiscovery(request, context) {
     var payload = {
-        discoveredAppliances : getDevicesFromPartnerCloud(user_access_token)
+        discoveredAppliances : SAMPLE_APPLIANCES.concat(generateSampleErrorAppliances())
     };
-    /**
-     * Return same header with namespace and messageId
-     * Change the name to 'DiscoverAppliancesResponse'
-     */
     var header =  JSON.parse(JSON.stringify(request.header));
     header.name = "DiscoverAppliancesResponse";
-    /**
-     * Log the response
-     * These messages will be stored in CloudWatch
-     */
     return {header, payload};
 }
-
-/**
- * Control events are processed here.
- * This is called when Alexa requests an action (IE turn off appliance).
- */
 function handleControl(request, context) {
     var payload = {};
     var appliance_id = request.payload.appliance.applianceId;
@@ -107,58 +94,52 @@ function handleControl(request, context) {
     if (appliance_id === 'ThermostatAuto-001'){
         var previous_mode = 'AUTO';
         var target_mode = 'AUTO';
-        var response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
+        var response = generateTemperatureResponse(request,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
     }
-        
     else if (appliance_id === 'ThermostatHeat-001'){
         var previous_mode = 'HEAT';
         var target_mode = 'HEAT';
-        var response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
+        var response = generateTemperatureResponse(request,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
     }
     else if (appliance_id === 'ThermostatCool-001'){
         var previous_mode = 'COOL';
         var target_mode = 'COOL';
-        var response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
+        var response = generateTemperatureResponse(request,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
     }
     else if (appliance_id === 'ThermostatEco-001'){
         var previous_mode = 'ECO';
         var target_mode = 'ECO';
-        var response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
+        var response = generateTemperatureResponse(request,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
     }
     else if (appliance_id === 'ThermostatCustom-001'){
         var previous_mode = 'CUSTOM';
         var target_mode = 'CUSTOM';
-        var response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
+        var response = generateTemperatureResponse(request,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
     }
     else if (appliance_id === 'ThermostatOff-001'){
         var previous_mode = 'OFF';
         var target_mode = 'OFF';
-        var response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
+        var response = generateTemperatureResponse(request,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
     }
     else if (appliance_id === 'Lock-001'){
         if (request_name === 'SetLockStateRequest'){
             response_name = 'SetLockStateConfirmation';
-            payload = {'lockState': event.payload.lockState};
+            payload = {'lockState': request.payload.lockState};
         }            
         else if (request_name === 'GetLockStateRequest'){
             response_name = 'GetLockStateResponse'
             payload = {'lockState': 'UNLOCKED', 'applianceResponseTimestamp': getUTCTimestamp()};
         }
-        payload = {
-            'errorInfo': {
-                'code': 'LOW_BATTERY',
-                'description': 'The requested operation cannot be completed because the device has low battery.',
-            }
-        };
+
         if (response_name === 'UnableToGetValueError'){
             header.namespace = 'Alexa.ConnectedHome.Query';
         }
-        var header = generateResponseHeader(event,response_name);
+        var header = generateResponseHeader(request,response_name);
         var response = generateResponse(header,payload);
     }
     else if (isSampleErrorAppliance(appliance_id)){
-        response_name = appliance_id.replace('-001','');
-        var header = generateResponseHeader(event,response_name);
+        response_name = appliance_id.replace('-002','');
+        var header = generateResponseHeader(request,response_name);
         var payload = {}
         if (response_name === 'ValueOutOfRangeError'){
             payload = {
@@ -177,7 +158,7 @@ function handleControl(request, context) {
                 'currentFirmwareVersion': '6',
             };
         }
-        else if (response_name in ['UnableToGetValueError','UnableToSetValueError']){
+        else if (isInArray(['UnableToGetValueError','UnableToSetValueError'], response_name)){
             payload = {
                 'errorInfo': {
                     'code': 'LOW_BATTERY',
@@ -185,7 +166,7 @@ function handleControl(request, context) {
                 }
             };
             if (response_name === 'UnableToGetValueError'){
-                header['namespace'] = 'Alexa.ConnectedHome.Query';
+                header.namespace = 'Alexa.ConnectedHome.Query';
             }
         }
         else if (response_name === 'UnwillingToSetValueError'){
@@ -217,13 +198,15 @@ function handleControl(request, context) {
     else{
         if (request_name === 'TurnOnRequest'){
             response_name = 'TurnOnConfirmation';
+            
         }
         if (request_name === 'TurnOffRequest'){
             response_name = 'TurnOffConfirmation';
+            payload = {};
         }
         if (request_name === 'SetTargetTemperatureRequest'){
             response_name = 'SetTargetTemperatureConfirmation'
-            target_temperature = event.payload.targetTemperature.value;
+            target_temperature = request.payload.targetTemperature.value;
             payload = {
                 'targetTemperature': {
                     'value': target_temperature
@@ -243,7 +226,7 @@ function handleControl(request, context) {
         }
         if (request_name === 'IncrementTargetTemperatureRequest'){
             response_name = 'IncrementTargetTemperatureConfirmation';
-            delta_temperature = event.payload.deltaTemperature.value;
+            delta_temperature = request.payload.deltaTemperature.value;
             payload = {
                 'previousState': {
                     'temperatureMode': {
@@ -263,7 +246,7 @@ function handleControl(request, context) {
         }      
         if (request_name === 'DecrementTargetTemperatureRequest'){
             response_name = 'DecrementTargetTemperatureConfirmation'
-            delta_temperature = event.payload.deltaTemperature.value;
+            delta_temperature = request.payload.deltaTemperature.value;
             payload = {
                 'previousState': {
                     'temperatureMode': {
@@ -293,7 +276,7 @@ function handleControl(request, context) {
         if (appliance_id === 'sample-5'){
             response_name = 'TargetOfflineError';
         }
-        var header = generateResponseHeader(event,response_name)
+        var header = generateResponseHeader(request,response_name)
         var response = generateResponse(header,payload)
     }
     return response;
@@ -338,13 +321,13 @@ function generateSampleErrorAppliances(){
 
     VALID_CONTROL_ERROR_RESPONSE_NAMES.forEach( function(error){
         sample_error_appliance = {
-            'applianceId': error + '-001',
+            'applianceId': error + '-002',
             'manufacturerName': SAMPLE_MANUFACTURER,
             'modelName': 'Switch',
             'version': '1',
             'friendlyName': 'Device ' + device_number,
             'friendlyDescription': 'Alexa turn on Device ' + device_number + '. Response: ' + error,
-            'isReachable': True,
+            'isReachable': true,
             'actions': [
                 'turnOn',
                 'turnOff',
@@ -361,21 +344,17 @@ function generateSampleErrorAppliances(){
                 'decrementTargetTemperature',
             ];
         }
-        sample_error_appliances.append(sample_error_appliance);
+        sample_error_appliances.push(sample_error_appliance);
         device_number = device_number + 1;
     });
     return sample_error_appliances;
 }
 function isSampleErrorAppliance(appliance_id){
-    var sample_error_appliances = generateSampleErrorAppliances();
-    for (sample_error_appliance in sample_error_appliances){
-        if (sample_error_appliance.applianceId == appliance_id) return true;
-    }
-    return false;
+    return appliance_id.endsWith('-002');
 }
 
 function generateResponseHeader(request,response_name){
-    header = {
+    var header = {
         'namespace': request.header.namespace,
         'name': response_name,
         'payloadVersion': '2',
@@ -384,7 +363,7 @@ function generateResponseHeader(request,response_name){
     return header;
 }
 function generateResponse(header,payload){
-    response = {
+    var response = {
         'header': header,
         'payload': payload,
     };
@@ -395,13 +374,15 @@ function generateTemperatureResponse(request,previous_temperature,previous_mode,
     var message_id = request.header.messageId;
     var response_name, target_temperature, payload;
     // valid request    
-    if (request_name in ['SetTargetTemperatureRequest','IncrementTargetTemperatureRequest','DecrementTargetTemperatureRequest']){
+    if (isInArray(['SetTargetTemperatureRequest','IncrementTargetTemperatureRequest','DecrementTargetTemperatureRequest'], request_name)){
         if (request_name === 'SetTargetTemperatureRequest'){
             response_name = 'SetTargetTemperatureConfirmation';
             target_temperature = request.payload.targetTemperature.value;
+        }
         if (request_name === 'IncrementTargetTemperatureRequest'){
             response_name = 'IncrementTargetTemperatureConfirmation';
             target_temperature = previous_temperature + request.payload.deltaTemperature.value;
+        }
         if (request_name === 'DecrementTargetTemperatureRequest'){
             response_name = 'DecrementTargetTemperatureConfirmation';
             target_temperature = previous_temperature - request.payload.deltaTemperature.value;
@@ -441,7 +422,7 @@ function generateTemperatureResponse(request,previous_temperature,previous_mode,
             }
         };
     }
-    else if (request_name == 'GetTargetTemperatureRequest'){
+    else if (request_name === 'GetTargetTemperatureRequest'){
         response_name = 'GetTargetTemperatureResponse';
         payload = {
             'applianceResponseTimestamp': getUTCTimestamp(),
@@ -451,7 +432,7 @@ function generateTemperatureResponse(request,previous_temperature,previous_mode,
             }
         };
 
-        if (target_mode in ['HEAT','COOL','ECO','CUSTOM']){
+        if (isInArray(['HEAT','COOL','ECO','CUSTOM'], target_mode)){
             payload['targetTemperature'] = {
                 'value': 21.00,
             };
@@ -468,20 +449,20 @@ function generateTemperatureResponse(request,previous_temperature,previous_mode,
             payload.temperatureMode.friendlyName = 'Manufacturer custom mode';
     }
     else{
-        response_name = 'UnexpectedInformationReceivedError;
+        response_name = 'UnexpectedInformationReceivedError';
         payload = {
             'faultingParameter': 'request.name: ' + request_name
         };
     }
-    header = generateResponseHeader(request,response_name);
-    response = generateResponse(header,payload);
-    return response
+    var header = generateResponseHeader(request,response_name);
+    var response = generateResponse(header,payload);
+    return response;
 }
 
-function getUTCTimestamp(seconds=None){
-    return new Date().getTime();
+function getUTCTimestamp(){
+    return new Date().toISOString();
 }
-var SAMPLE_MANUFACTURER = 'Sample Manufacturer'
+var SAMPLE_MANUFACTURER = 'Sample Manufacturer';
 var SAMPLE_APPLIANCES = [
         {
             'applianceId': 'switch-001',
@@ -599,4 +580,36 @@ var SAMPLE_APPLIANCES = [
             'additionalApplianceDetails': {}
         }
 ];
+function isEmpty(obj) {
+    // null and undefined are "empty"
+    if (obj == null) return true;
 
+    // Assume if it has a length property with a non-zero value
+    // that that property is correct.
+    if (obj.length > 0)    return false;
+    if (obj.length === 0)  return true;
+
+    // If it isn't an object at this point
+    // it is empty, but it can't be anything *but* empty
+    // Is it empty?  Depends on your application.
+    if (typeof obj !== "object") return true;
+
+    // Otherwise, does it have any properties of its own?
+    // Note that this doesn't handle
+    // toString and valueOf enumeration bugs in IE < 9
+    var hasOwnProperty = Object.prototype.hasOwnProperty;
+    for (var key in obj) {
+        if (hasOwnProperty.call(obj, key)) return false;
+    }
+
+    return true;
+}
+function isInArray(array, object) {
+    if (isEmpty(array)){
+        return false;
+    }
+    if (isEmpty(object)){
+        return false;
+    }
+    return array.indexOf(object) > -1;
+}

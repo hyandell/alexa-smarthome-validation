@@ -87,7 +87,7 @@ var VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'TargetFirmwareOutdatedError',
     'TargetBridgeFirmwareOutdatedError',
     'TargetHardwareMalfunctionError',
-    'TargetBridgetHardwareMalfunctionError',
+    'TargetBridgeHardwareMalfunctionError',
     'UnwillingToSetValueError',
     'RateLimitExceededError',
     'NotSupportedInCurrentModeError',
@@ -321,13 +321,13 @@ function validateDiscoveryResponse(request, response){
     if (isEmpty(payload)){
         throw new Error(generateErrorMessage(response.header.name, 'payload must not be empty', payload));
     }
-    if (!(payload instanceof Array)){
+    if (!(payload instanceof Object)){
         throw new Error(generateErrorMessage('Response','request must be a Array',request));
     }
     if (!('discoveredAppliances' in payload)){
         throw new Error(generateErrorMessage(response_name, 'payload.discoveredAppliances is missing', payload));
     }
-    if (!(payload.discoveredAppliances instanceof Array)){
+    if (!Array.isArray(payload.discoveredAppliances)){
         throw new Error(generateErrorMessage(response_name, 'payload.discoveredAppliances must be an Array, can be empty', payload));
     }
     if (payload.discoveredAppliances.length > MAX_DISCOVERED_APPLIANCES){
@@ -420,17 +420,17 @@ function validateControlResponse(request, response){
     var request_name = request.header.name;
     var response_name = response.header.name;
 
+    try{
+        payload = response.payload;
+    } catch (err){
+        throw new Error(generateErrorMessage(response_name, 'payload is missing', payload));
+    }
     // Validate response payload
     if (!payload){
         throw new Error(generateErrorMessage(response_name, 'payload is missing', payload));
     }
-    try{
-        payload = response.payload;
-    } catch(err){
-        throw new Error(generateErrorMessage(response_name, 'payload is missing', payload));
-    }
-    if (!(payload instanceof Array)){
-        throw new Error(generateErrorMessage(response_name, 'payload must be an Array', payload));
+    if (!(payload instanceof Object)){
+        throw new Error(generateErrorMessage(response_name, 'payload must be an Object', payload));
     }
     // Validate non-empty control response payload
     if (isInArray(VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES,response_name)){
@@ -445,7 +445,7 @@ function validateControlResponse(request, response){
     }
 
     // Validate thermostat control response payload
-    if (isInArray(['SetTargetTemperatureRequest','IncrementTargetTemperatureRequest','DecrementTargetTemperatureRequest'], request_name)){
+    if (isInArray(['SetTargetTemperatureConfirmation','IncrementTargetTemperatureConfirmation','DecrementTargetTemperatureConfirmation'], request_name)){
         // Validate payload
         ['targetTemperature','temperatureMode','previousState'].forEach( function(key){
             if (!(key in payload)){
@@ -460,7 +460,7 @@ function validateControlResponse(request, response){
             if (!('value' in payload.temperatureMode)){
                 throw new Error(generateErrorMessage(response_name, 'payload.temperatureMode.value is missing', payload));
             }
-            if (!(isInArray(TEMPERATURE_MODES, payload.temperatureMode.value))){
+            if (!(isInArray(VALID_TEMPERATURE_MODES, payload.temperatureMode.value))){
                 throw new Error(generateErrorMessage(response_name,'payload.temperatureMode.value is invalid', payload));
             }
             
@@ -479,7 +479,7 @@ function validateControlResponse(request, response){
             if (!('value' in payload.previousState.temperatureMode)){
                 throw new Error(generateErrorMessage(response_name, 'payload.previousState.temperatureMode.value is missing', payload));
             }
-            if (!(isInArray(TEMPERATURE_MODES, payload.previousState.temperatureMode.value))){
+            if (!(isInArray(VALID_TEMPERATURE_MODES, payload.previousState.temperatureMode.value))){
                 throw new Error(generateErrorMessage(response_name, 'payload.previousState.temperatureMode.value is invalid', payload));
             }
         });
@@ -512,7 +512,7 @@ function validateControlResponse(request, response){
             throw new Error(generateErrorMessage(response_name, 'payload.dependentServiceName must be specifed in alphanumeric characters and spaces', payload));
         }
     }
-    if (response_name in ['TargetFirmwareOutdatedError','TargetBridgeFirmwareOutdatedError']){
+    if ( isInArray(['TargetFirmwareOutdatedError','TargetBridgeFirmwareOutdatedError'], response_name)){
         ['minimumFirmwareVersion','currentFirmwareVersion'].forEach( function(key){
             if (!(key in payload)){
                 throw new Error(generateErrorMessage(response_name, 'payload.' + key + ' is missing', payload));
@@ -526,7 +526,7 @@ function validateControlResponse(request, response){
             }
         });
     }
-    if (response_name in ['UnableToSetValueError']){
+    if (response_name === 'UnableToSetValueError'){
         if (!('errorInfo' in payload)){
             throw new Error(generateErrorMessage(response_name, 'payload.errorInfo is missing', payload));
         }
@@ -539,10 +539,10 @@ function validateControlResponse(request, response){
             throw new Error(generateErrorMessage(response_name,'payload.errorInfo.code is invalid',payload));
         }
     }
-    if (response_name in ['UnableToGetValueError']){
+    if (response_name === 'UnableToGetValueError'){
        validateQueryResponse(request,response);
     }
-    if ( response_name === 'UnwillingToSetValueError'){
+    if (response_name === 'UnwillingToSetValueError'){
         if (!('errorInfo' in payload)){
             throw new Error(generateErrorMessage(response_name, 'payload.errorInfo is missing', payload));
         }
@@ -551,7 +551,7 @@ function validateControlResponse(request, response){
                 throw new Error(generateErrorMessage(response_name, 'payload.errorInfo.' + key + ' is missing', payload));
             }
         });
-        if (!(isInArray(VALID_ERRORINFO_CODES, payload.errorInfo.code))){
+        if (!(isInArray(VALID_UNWILLING_ERROR_INFO_CODES, payload.errorInfo.code))){
             throw new Error(generateErrorMessage(response_name, 'payload.errorInfo.code is invalid', payload));
         }
     }
@@ -563,7 +563,7 @@ function validateControlResponse(request, response){
             if (payload.rateLimit <= 0){
                 throw new Error(generateErrorMessage(response_name, 'payload.rateLimit must be a positive integer', payload));
             }
-            if (!(isInArray(VALID_TIME_UNITS, payload.rateLimit))){
+            if (!(isInArray(VALID_TIME_UNITS, payload.timeUnit))){
                 throw new Error(generateErrorMessage(response_name, 'payload.timeUnit is invalid', payload));
             }
         });
@@ -608,11 +608,11 @@ function validateQueryResponse(request,response){
     if (!payload){
         throw new Error(generateErrorMessage(response_name,'payload is missing',payload));
     }
-    if (!payload instanceof Array){
+    if (!payload instanceof Object){
         throw new Error(generateErrorMessage(response_name,'payload must be an Array',payload));
     } 
     // Validate non-empty control response payload
-    if (response_name in VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES){
+    if (isInArray(VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES, response_name)){
         if (isEmpty(payload)){
             throw new Error(generateErrorMessage(response_name,'payload must not be empty',payload));
         } 
@@ -641,7 +641,7 @@ function validateQueryResponse(request,response){
         if(!payload.temperatureMode.value){
              throw new Error(generateErrorMessage(response_name,'payload.temperatureMode.value is missing',payload));
         } 
-        if (!(payload.temperatureMode.value in VALID_TEMPERATURE_MODES)){
+        if (!(isInArray(VALID_TEMPERATURE_MODES, payload.temperatureMode.value))){
             throw new Error(generateErrorMessage(response_name,'payload.temperatureMode.value is invalid',payload));
         }
         mode = payload.temperatureMode.value;
@@ -666,11 +666,11 @@ function validateQueryResponse(request,response){
         }
     }
     // Validate lock query response payload
-    if (response_name in ['GetLockStateResponse']){
+    if (response_name === 'GetLockStateResponse'){
         if (!payload.lockState){
             throw new Error(generateErrorMessage(response_name,'payload.lockState is missing',payload));
         }
-        if (!(payload.lockState in VALID_LOCK_STATES)){
+        if (!isInArray(VALID_LOCK_STATES, payload.lockState)){
             throw new Error(generateErrorMessage(response_name,'payload.lockState is invalid',payload));
         } 
     }
@@ -684,7 +684,7 @@ function validateQueryResponse(request,response){
                 throw new Error(generateErrorMessage(response_name,'payload.errorInfo' + required_key + ' is missing',payload));
             }
         });
-        if (!(payload.errorInfo.code in VALID_UNABLE_ERROR_INFO_CODES)){
+        if (!isInArray(VALID_UNABLE_ERROR_INFO_CODES,payload.errorInfo.code)){
             throw new Error(generateErrorMessage(response_name,'payload.errorInfo.code is invalid',payload));
         }
     }
@@ -724,13 +724,9 @@ function validateResponseHeader(request, response){
         if (!isInArray(VALID_DISCOVERY_RESPONSE_NAMES,header.name)){
             throw new Error(generateErrorMessage('Discovery Response', 'header.name is invalid', header));
         }
-        var correct_response_name = request_name.replace('Request','Response');
-        if (header.name != correct_response_name){
-            throw new Error(generateErrorMessage('Discovery Response','header.name must be ' + correct_response_name + ' for ' + request_name,header));
-        }
     }
     if (isInArray(VALID_CONTROL_REQUEST_NAMES,request_name)){
-        if (!(header.namespace in ['Alexa.ConnectedHome.Control', 'Alexa.ConnectedHome.Query'])){
+        if (['Alexa.ConnectedHome.Control', 'Alexa.ConnectedHome.Query'].indexOf(header.namespace) == -1){
             throw new Error(generateErrorMessage('Control Response', 'header.namespace must be Alexa.ConnectedHome.Control or Alexa.ConnectedHome.Query', header));
         }
         if (!isInArray(VALID_CONTROL_RESPONSE_NAMES.concat(VALID_CONTROL_ERROR_RESPONSE_NAMES),header.name)){
@@ -744,7 +740,7 @@ function validateResponseHeader(request, response){
         }
     }
     if (isInArray(VALID_QUERY_REQUEST_NAMES,request_name)){
-        if (!(header.namespace in ['Alexa.ConnectedHome.Control', 'Alexa.ConnectedHome.Query'])){
+        if (!(isInArray(['Alexa.ConnectedHome.Control', 'Alexa.ConnectedHome.Query'], header.namespace))){
             throw new Error(generateErrorMessage('Query Response', 'header.namespace must be Alexa.ConnectedHome.Query or Alexa.ConnectedHome.Control', header));
         }
         if (!isInArray(VALID_QUERY_RESPONSE_NAMES.concat(VALID_CONTROL_ERROR_RESPONSE_NAMES),header.name)){
