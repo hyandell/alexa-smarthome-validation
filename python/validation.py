@@ -551,10 +551,10 @@ def is_number(s):
         return False
 
 def is_alphanumeric_and_spaces(s):
-    return re.match('^[a-zA-Z0-9 ]*$',s)
+    return re.match('^[a-zA-Z0-9äüöÄÜÖß ]*$',s)
 
 def is_alphanumeric(s):
-    return re.match('^[a-zA-Z0-9]*$',s)    
+    return re.match('^[a-zA-Z0-9äüöÄÜÖß]*$',s)    
 
 def is_empty_string(s):
     return len(str(s).strip()) == 0
