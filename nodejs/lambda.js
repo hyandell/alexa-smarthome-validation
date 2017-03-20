@@ -35,7 +35,7 @@ var validator = require('validation');
 
 exports.handler = function(request, context) {  
     try{
-        validator.validateContext();
+        validator.validateContext(context);
         log('INFO','Request Header: ' + JSON.stringify(request.header));
         log('INFO','Request Payload: ' + JSON.stringify(request.payload));
         var resp = {};
