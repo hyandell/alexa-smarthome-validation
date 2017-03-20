@@ -36,6 +36,8 @@ var validator = require('validation');
 exports.handler = function(request, context) {  
     try{
         validator.validateContext();
+        log('INFO','Request Header: ' + JSON.stringify(request.header));
+        log('INFO','Request Payload: ' + JSON.stringify(request.payload));
         var resp = {};
         if (request.header.namespace === 'Alexa.ConnectedHome.Discovery'){
             resp = handleDiscovery(request, context);
@@ -43,6 +45,8 @@ exports.handler = function(request, context) {
         if (request.header.namespace === 'Alexa.ConnectedHome.Control' || request.header.namespace === 'Alexa.ConnectedHome.Query'){
             resp = handleControl(request, context);
         }
+        log('INFO','Response Header: ' + JSON.stringify(resp.header));
+        log('INFO','Response Payload: ' + JSON.stringify(resp.payload));
         validator.validateResponse(request, resp);   
         context.succeed(resp);
     } catch(err){
@@ -130,10 +134,6 @@ function handleControl(request, context) {
             response_name = 'GetLockStateResponse'
             payload = {'lockState': 'UNLOCKED', 'applianceResponseTimestamp': getUTCTimestamp()};
         }
-
-        if (response_name === 'UnableToGetValueError'){
-            header.namespace = 'Alexa.ConnectedHome.Query';
-        }
         var header = generateResponseHeader(request,response_name);
         var response = generateResponse(header,payload);
     }
@@ -202,7 +202,6 @@ function handleControl(request, context) {
         }
         if (request_name === 'TurnOffRequest'){
             response_name = 'TurnOffConfirmation';
-            payload = {};
         }
         if (request_name === 'SetTargetTemperatureRequest'){
             response_name = 'SetTargetTemperatureConfirmation'
@@ -273,7 +272,7 @@ function handleControl(request, context) {
         if (request_name === 'DecrementPercentageRequest'){
             response_name = 'DecrementPercentageConfirmation';
         }
-        if (appliance_id === 'sample-5'){
+        if (appliance_id === 'SwitchUnreachable-001'){
             response_name = 'TargetOfflineError';
         }
         var header = generateResponseHeader(request,response_name)
@@ -317,35 +316,64 @@ function generateSampleErrorAppliances(){
         'UnexpectedInformationReceivedError'
     ];
     var sample_error_appliances = [];
-    var device_number = 100;
+    var device_number = 1;
 
     VALID_CONTROL_ERROR_RESPONSE_NAMES.forEach( function(error){
-        sample_error_appliance = {
-            'applianceId': error + '-002',
-            'manufacturerName': SAMPLE_MANUFACTURER,
-            'modelName': 'Switch',
-            'version': '1',
-            'friendlyName': 'Device ' + device_number,
-            'friendlyDescription': 'Alexa turn on Device ' + device_number + '. Response: ' + error,
-            'isReachable': true,
-            'actions': [
-                'turnOn',
-                'turnOff',
-            ],
-            'additionalApplianceDetails': {}
-        };
+        if (isInArray(['UnableToGetValueError','UnableToSetValueError'], error)){
+            ['DEVICE_AJAR','DEVICE_BUSY','DEVICE_JAMMED','DEVICE_OVERHEATED','HARDWARE_FAILURE','LOW_BATTERY','NOT_CALIBRATED'].forEach( function( code ){
+                var friendly_name = generateErrorFriendlyName(device_number) + ' door';
+                var friendly_description;
+                if (error === 'UnableToGetValueError'){
+                    friendly_description = 'Utterance: Alexa, is ' + friendly_name + ' locked? Response: ' + error + ' code: ' + code;   
+                }
+                else{
+                    friendly_description = 'Utterance: Alexa, lock ' + friendly_name + '. Response: ' + error + ' code: ' + code;
+                }
+                var sample_error_appliance = {
+                    'applianceId': error + '-' + code + '-002',
+                    'manufacturerName': SAMPLE_MANUFACTURER,
+                    'modelName': 'Lock',
+                    'version': '1',
+                    'friendlyName': friendly_name,
+                    'friendlyDescription': friendly_description,
+                    'isReachable': true,
+                    'actions': [
+                        'setLockState',
+                        'getLockState',                        
+                    ],
+                    'additionalApplianceDetails': {}
+                }
+                sample_error_appliances.push(sample_error_appliance);
+                device_number++;
+            });
+        } else {
+            var sample_error_appliance = {
+                'applianceId': error + '-002',
+                'manufacturerName': SAMPLE_MANUFACTURER,
+                'modelName': 'Switch',
+                'version': '1',
+                'friendlyName': 'Device ' + device_number,
+                'friendlyDescription': 'Alexa turn on Device ' + friendly_name + '. Response: ' + error,
+                'isReachable': true,
+                'actions': [
+                    'turnOn',
+                    'turnOff',
+                ],
+                'additionalApplianceDetails': {}
+            };
 
-        if (error === 'ValueOutOfRangeError'){
-            sample_error_appliance.friendlyDescription = 'Alexa set Device ' + device_number + ' to 80 degrees. Response: ' + error;
-            sample_error_appliance.modelName = 'Thermostat';
-            sample_error_appliance.actions = [
-                'setTargetTemperature',
-                'incrementTargetTemperature',
-                'decrementTargetTemperature',
-            ];
+            if (error === 'ValueOutOfRangeError'){
+                sample_error_appliance.friendlyDescription = 'Utterane: Alexa set ' + friendly_name + ' to 80 degrees. Response: ' + error;
+                sample_error_appliance.modelName = 'Thermostat';
+                sample_error_appliance.actions = [
+                    'setTargetTemperature',
+                    'incrementTargetTemperature',
+                    'decrementTargetTemperature',
+                ];
+            }
+            sample_error_appliances.push(sample_error_appliance);
+            device_number++;
         }
-        sample_error_appliances.push(sample_error_appliance);
-        device_number = device_number + 1;
     });
     return sample_error_appliances;
 }
@@ -388,8 +416,7 @@ function generateTemperatureResponse(request,previous_temperature,previous_mode,
             target_temperature = previous_temperature - request.payload.deltaTemperature.value;
         }
         // valid target temperature
-        if (target_temperature <= maximum_temperature && target_temperature >= minimum_temperature){
-            payload = {
+        var payload = {
                 'targetTemperature': {
                     'value': target_temperature
                 },
@@ -405,14 +432,7 @@ function generateTemperatureResponse(request,previous_temperature,previous_mode,
                     }
                 }        
             };
-        }
-        else{
-            response_name = 'ValueOutOfRangeError';
-            payload = {
-                'minimumValue': 5.0,
-                'maximumValue': 30.0,
-            };
-        }
+        
     }
     else if (request_name === 'GetTemperatureReadingRequest'){
         response_name = 'GetTemperatureReadingResponse';
@@ -458,19 +478,21 @@ function generateTemperatureResponse(request,previous_temperature,previous_mode,
     var response = generateResponse(header,payload);
     return response;
 }
-
+function generateErrorFriendlyName(device_number){
+    return 'Device ' + device_number;
+}
 function getUTCTimestamp(){
     return new Date().toISOString();
 }
 var SAMPLE_MANUFACTURER = 'Sample Manufacturer';
 var SAMPLE_APPLIANCES = [
         {
-            'applianceId': 'switch-001',
+            'applianceId': 'Switch-001',
             'manufacturerName': SAMPLE_MANUFACTURER,
             'modelName': 'Switch',
             'version': '1',
-            'friendlyName': 'Sample Switch',
-            'friendlyDescription': 'Switch by ' + SAMPLE_MANUFACTURER,
+            'friendlyName': 'Switch',
+            'friendlyDescription': 'On/off switch that is functional and reachable',
             'isReachable': true,
             'actions': [
                 'turnOn',
@@ -481,12 +503,12 @@ var SAMPLE_APPLIANCES = [
             }        
         },
         {
-            'applianceId': 'dimmer-001',
+            'applianceId': 'Dimmer-001',
             'manufacturerName': SAMPLE_MANUFACTURER,
             'modelName': 'Dimmer',
             'version': '1',
-            'friendlyName': 'Sample Dimmer',
-            'friendlyDescription': 'Dimmer by ' + SAMPLE_MANUFACTURER,
+            'friendlyName': 'Upstairs Dimmer',
+            'friendlyDescription': 'Dimmer that is functional and reachable',
             'isReachable': true,
             'actions': [
                 'turnOn',
@@ -500,12 +522,12 @@ var SAMPLE_APPLIANCES = [
             }        
         },
         {
-            'applianceId': 'fan-001',
+            'applianceId': 'Fan-001',
             'manufacturerName': SAMPLE_MANUFACTURER,
             'modelName': 'Fan',
             'version': '1',
-            'friendlyName': 'Sample Fan',
-            'friendlyDescription': 'Fan by ' + SAMPLE_MANUFACTURER,
+            'friendlyName': 'Upstairs Fan',
+            'friendlyDescription': 'Fan that is functional and reachable',
             'isReachable': true,
             'actions': [
                 'turnOn',
@@ -519,12 +541,12 @@ var SAMPLE_APPLIANCES = [
             }        
         },
         {
-            'applianceId': 'switch-unreachable-001',
+            'applianceId': 'SwitchUnreachable-001',
             'manufacturerName': SAMPLE_MANUFACTURER,
             'modelName': 'Switch',
             'version': '1',
-            'friendlyName': 'Sample Switch Unreachable',
-            'friendlyDescription': 'Switch by ' + SAMPLE_MANUFACTURER,
+            'friendlyName': 'Switch Unreachable',
+            'friendlyDescription': 'Switch that is unreachable and shows (Offline)',
             'isReachable': false,
             'actions': [
                 'turnOn',
@@ -539,13 +561,15 @@ var SAMPLE_APPLIANCES = [
             'manufacturerName': SAMPLE_MANUFACTURER,
             'modelName': 'Thermostat',
             'version': '1',
-            'friendlyName': 'Amazon Basement',
+            'friendlyName': 'Family Room',
             'friendlyDescription': 'Thermostat in AUTO mode and reachable',
             'isReachable': true,
             'actions': [
                 'setTargetTemperature',
                 'incrementTargetTemperature',
                 'decrementTargetTemperature',
+                'getTargetTemperature',
+                'getTemperatureReading'
             ],
             'additionalApplianceDetails': {}
         },
@@ -554,13 +578,15 @@ var SAMPLE_APPLIANCES = [
             'manufacturerName': SAMPLE_MANUFACTURER,
             'modelName': 'Thermostat',
             'version': '1',
-            'friendlyName': 'Amazon Heater',
+            'friendlyName': 'Guestroom',
             'friendlyDescription': 'Thermostat in HEAT mode and reachable',
             'isReachable': true,
             'actions': [
                 'setTargetTemperature',
                 'incrementTargetTemperature',
                 'decrementTargetTemperature',
+                'getTargetTemperature',
+                'getTemperatureReading'
             ],
             'additionalApplianceDetails': {}
         },
@@ -569,13 +595,80 @@ var SAMPLE_APPLIANCES = [
             'manufacturerName': SAMPLE_MANUFACTURER,
             'modelName': 'Thermostat',
             'version': '1',
-            'friendlyName': 'Amazon Cooler',
+            'friendlyName': 'Hallway',
             'friendlyDescription': 'Thermostat in COOL mode and reachable',
             'isReachable': true,
             'actions': [
                 'setTargetTemperature',
                 'incrementTargetTemperature',
                 'decrementTargetTemperature',
+                'getTargetTemperature',
+                'getTemperatureReading',
+            ],
+            'additionalApplianceDetails': {}
+        },
+        {
+            'applianceId': 'ThermostatEco-001',
+            'manufacturerName': SAMPLE_MANUFACTURER,
+            'modelName': 'Thermostat',
+            'version': '1',
+            'friendlyName': 'Kitchen',
+            'friendlyDescription': 'Thermostat in ECO mode and reachable',
+            'isReachable': true,
+            'actions': [
+                'setTargetTemperature',
+                'incrementTargetTemperature',
+                'decrementTargetTemperature',
+                'getTargetTemperature',
+                'getTemperatureReading',            
+            ],
+            'additionalApplianceDetails': {}
+        },
+        {
+            'applianceId': 'ThermostatCustom-001',
+            'manufacturerName': SAMPLE_MANUFACTURER,
+            'modelName': 'Thermostat',
+            'version': '1',
+            'friendlyName': 'Laundry Room',
+            'friendlyDescription': 'Thermostat in CUSTOM mode and reachable',
+            'isReachable': true,
+            'actions': [
+                'setTargetTemperature',
+                'incrementTargetTemperature',
+                'decrementTargetTemperature',
+                'getTargetTemperature',
+                'getTemperatureReading',            
+            ],
+            'additionalApplianceDetails': {}
+        },
+        {
+            'applianceId': 'ThermostatOff-001',
+            'manufacturerName': SAMPLE_MANUFACTURER,
+            'modelName': 'Thermostat',
+            'version': '1',
+            'friendlyName': 'Living Room',
+            'friendlyDescription': 'Thermostat in OFF mode and reachable',
+            'isReachable': true,
+            'actions': [
+                'setTargetTemperature',
+                'incrementTargetTemperature',
+                'decrementTargetTemperature',
+                'getTargetTemperature',
+                'getTemperatureReading',            
+            ],
+            'additionalApplianceDetails': {}
+        },
+        {
+            'applianceId': 'Lock-001',
+            'manufacturerName': SAMPLE_MANUFACTURER,
+            'modelName': 'Lock',
+            'version': '1',
+            'friendlyName': 'Door',
+            'friendlyDescription': 'Lock that is functional and reachable',
+            'isReachable': true,
+            'actions': [
+                'setLockState',
+                'getLockState',
             ],
             'additionalApplianceDetails': {}
         }

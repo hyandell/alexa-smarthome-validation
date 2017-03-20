@@ -810,10 +810,8 @@ function isEmpty(obj) {
     for (var key in obj) {
         if (hasOwnProperty.call(obj, key)) return false;
     }
-
     return true;
 }
-
 function isInArray(array, object) {
     if (isEmpty(array)){
         return false;
@@ -822,6 +820,6 @@ function isInArray(array, object) {
         return false;
     }
     return array.indexOf(object) > -1;
-}
+} 
 exports.validateContext = validateContext;
 exports.validateResponse = validateResponse;
