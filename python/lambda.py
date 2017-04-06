@@ -40,10 +40,10 @@ SAMPLE_APPLIANCES = [
     {
         'applianceId': 'Dimmer-001',
         'manufacturerName': SAMPLE_MANUFACTURER,
-        'modelName': 'Dimmer',
+        'modelName': 'Light',
         'version': '1',
-        'friendlyName': 'Upstairs Dimmer',
-        'friendlyDescription': 'Dimmer that is functional and reachable',
+        'friendlyName': 'Upstairs Light',
+        'friendlyDescription': 'Light that is functional (brightness, color, color temperature) and reachable',
         'isReachable': True,
         'actions': [
             'turnOn',
@@ -51,6 +51,10 @@ SAMPLE_APPLIANCES = [
             'setPercentage',
             'incrementPercentage',
             'decrementPercentage',
+            'setColor',
+            'setColorTemperature',
+            'incrementColorTemperature',
+            'decrementColorTemperature',
         ],
         'additionalApplianceDetails': {}        
     },
@@ -277,6 +281,9 @@ def handleControl(event,context):
         target_mode = 'OFF'
         response = generateTemperatureResponse(event,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature)
 
+    elif appliance_id == 'Dimmer-001':
+        response = generateLightingResponse(event)
+
     elif appliance_id == 'Lock-001':
         if request_name == 'SetLockStateRequest':
             response_name = 'SetLockStateConfirmation'
@@ -294,7 +301,7 @@ def handleControl(event,context):
         response = generateResponse(header,payload)
 
     elif isSampleErrorAppliance(appliance_id):
-        response_name = appliance_id.replace('-001','')
+        response_name = appliance_id.split("-")[0]
         header = generateResponseHeader(event,response_name)
         payload = {}
         if response_name == 'ValueOutOfRangeError':
@@ -311,14 +318,10 @@ def handleControl(event,context):
                 'minimumFirmwareVersion': '17',
                 'currentFirmwareVersion': '6',
             }
-        elif response_name.startswith('UnableToGetValueError') or response_name.startswith('UnableToSetValueError'):
-            if response_name.startswith('UnableToGetValueError'):
-                code = response_name.replace('UnableToGetValueError-','')
+        elif response_name in ['UnableToGetValueError','UnableToSetValueError']:
+            code = appliance_id.split("-")[1]
+            if response_name == 'UnableToGetValueError':
                 header['namespace'] = 'Alexa.ConnectedHome.Query'
-                header['name'] = 'UnableToGetValueError'
-            else:
-                code = response_name.replace('UnableToSetValueError-','')
-                header['name'] = 'UnableToSetValueError'
             payload = {
                 'errorInfo': {
                     'code': code,
@@ -339,8 +342,9 @@ def handleControl(event,context):
                 'timeUnit': 'HOUR',
             }
         elif response_name == 'NotSupportedInCurrentModeError':
+            code = appliance_id.split("-")[1]
             payload = {
-                'currentDeviceMode': 'AWAY',
+                'currentDeviceMode': code,
             }
         elif response_name == 'UnexpectedInformationReceivedError':
             payload = {
@@ -490,6 +494,43 @@ def generateSampleErrorAppliances():
                 sample_error_appliances.append(sample_error_appliance)
                 device_number = device_number + 1
 
+        elif error == 'NotSupportedInCurrentModeError':
+            VALID_CURRENT_DEVICE_MODES = [
+                'HEAT',
+                'COOL',
+                'AUTO',
+                'AWAY',
+                'OTHER',
+                'COLOR'
+            ]
+            for code in VALID_CURRENT_DEVICE_MODES:
+                friendly_name = generateErrorFriendlyName(device_number)
+                friendly_description = 'Utterance: Alexa, turn on ' + friendly_name + '. Response: ' + error + ' code: ' + code
+                if code == 'COLOR':
+                    model_name = 'Light'
+                else:
+                    model_name = 'Switch'
+
+                sample_error_appliance = {
+                    'applianceId': error + '-' + code + '-001',
+                    'manufacturerName': SAMPLE_MANUFACTURER,
+                    'modelName': model_name,
+                    'version': '1',
+                    'friendlyName': friendly_name,
+                    'friendlyDescription': friendly_description,
+                    'isReachable': True,
+                    'actions': [
+                        'turnOn',
+                        'turnOff',
+                        'incrementColorTemperature',
+                        'decrementColorTemperature',                        
+                    ],
+                    'additionalApplianceDetails': {}
+                }
+
+                sample_error_appliances.append(sample_error_appliance)
+                device_number = device_number + 1
+
         else:
             friendly_name = generateErrorFriendlyName(device_number)
             friendly_description = 'Utterance: Alexa, turn on ' + friendly_name + '. Response: ' + error    
@@ -610,6 +651,79 @@ def generateTemperatureResponse(request,previous_temperature,previous_mode,targe
         if target_mode == 'CUSTOM':
             payload['temperatureMode']['friendlyName'] = 'Manufacturer custom mode'
 
+
+    else:
+        response_name = 'UnexpectedInformationReceivedError'
+        payload = {
+            'faultingParameter': 'request.name: ' + request_name
+        }
+
+    header = generateResponseHeader(request,response_name)
+    response = generateResponse(header,payload)
+    return response
+
+def generateLightingResponse(request):
+    request_name = request['header']['name']
+    message_id = request['header']['messageId']
+    payload = {}
+
+    # valid request    
+    if request_name == 'TurnOnRequest':
+        response_name = 'TurnOnConfirmation'
+
+    elif request_name == 'TurnOffRequest':
+        response_name = 'TurnOffConfirmation'
+   
+    elif request_name == 'SetPercentageRequest':
+        response_name = 'SetPercentageConfirmation'
+    
+    elif request_name == 'IncrementPercentageRequest':
+        response_name = 'IncrementPercentageConfirmation'
+    
+    elif request_name == 'DecrementPercentageRequest':
+        response_name = 'DecrementPercentageConfirmation'
+
+    elif request_name == 'SetColorRequest':
+        response_name = 'SetColorConfirmation'
+        payload = {
+            'achievedState': {
+                'color': {
+                    'hue': request['payload']['color']['hue'],
+                    'saturation': request['payload']['color']['saturation'],
+                    'brightness': request['payload']['color']['brightness'],
+                }
+            }
+        }
+
+    elif request_name == 'SetColorTemperatureRequest':
+        response_name = 'SetColorTemperatureConfirmation'
+        payload = {
+            'achievedState': {
+                'colorTemperature': {
+                    'value': request['payload']['colorTemperature']['value']
+                }
+            }
+        }
+
+    elif request_name == 'IncrementColorTemperatureRequest':
+        response_name = 'IncrementColorTemperatureConfirmation'
+        payload = {
+            'achievedState': {
+                'colorTemperature': {
+                    'value': 3000
+                }
+            }
+        }
+
+    elif request_name == 'DecrementColorTemperatureRequest':
+        response_name = 'DecrementColorTemperatureConfirmation'
+        payload = {
+            'achievedState': {
+                'colorTemperature': {
+                    'value': 2000
+                }
+            }
+        }
 
     else:
         response_name = 'UnexpectedInformationReceivedError'

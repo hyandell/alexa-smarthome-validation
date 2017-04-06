@@ -40,7 +40,11 @@ VALID_CONTROL_REQUEST_NAMES = [
     'SetPercentageRequest',
     'IncrementPercentageRequest',
     'DecrementPercentageRequest',
-    'SetLockStateRequest'
+    'SetLockStateRequest',
+    'SetColorRequest',
+    'SetColorTemperatureRequest',
+    'IncrementColorTemperatureRequest',
+    'DecrementColorTemperatureRequest'
 ]
 VALID_QUERY_REQUEST_NAMES = [
     'GetLockStateRequest',
@@ -64,7 +68,11 @@ VALID_CONTROL_RESPONSE_NAMES = [
     'SetPercentageConfirmation',
     'IncrementPercentageConfirmation',
     'DecrementPercentageConfirmation',
-    'SetLockStateConfirmation'
+    'SetLockStateConfirmation',
+    'SetColorConfirmation',
+    'SetColorTemperatureConfirmation',
+    'IncrementColorTemperatureConfirmation',
+    'DecrementColorTemperatureConfirmation'
 ]
 VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'ValueOutOfRangeError',
@@ -102,6 +110,10 @@ VALID_SYSTEM_RESPONSE_NAMES = [
 VALID_RESPONSE_NAMES = VALID_DISCOVERY_RESPONSE_NAMES + VALID_CONTROL_RESPONSE_NAMES + VALID_CONTROL_ERROR_RESPONSE_NAMES + VALID_QUERY_RESPONSE_NAMES + VALID_SYSTEM_RESPONSE_NAMES
 
 VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES = [
+    'SetColorConfirmation',
+    'SetColorTemperatureConfirmation',
+    'IncrementColorTemperatureConfirmation',
+    'DecrementColorTemperatureConfirmation',
     'SetTargetTemperatureConfirmation',
     'IncrementTargetTemperatureConfirmation',
     'DecrementTargetTemperatureConfirmation',
@@ -121,13 +133,17 @@ VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES = [
     'UnexpectedInformationReceivedError'
 ]
 VALID_ACTIONS = [
+    'decrementColorTemperature',
     'decrementPercentage',
     'decrementTargetTemperature',
     'getTargetTemperature',
     'getTemperatureReading',
     'getLockState',
+    'incrementColorTemperature',
     'incrementPercentage',
     'incrementTargetTemperature',
+    'setColor',
+    'setColorTemperature',
     'setLockState',
     'setPercentage',
     'setTargetTemperature',
@@ -147,7 +163,8 @@ VALID_CURRENT_DEVICE_MODES = [
     'COOL',
     'AUTO',
     'AWAY',
-    'OTHER'
+    'OTHER',
+    'COLOR'
 ]
 VALID_UNABLE_ERROR_INFO_CODES = [
     'DEVICE_AJAR',
@@ -205,7 +222,6 @@ def validateContext(context):
     """
 
     if context.get_remaining_time_in_millis() > 7000: raise_value_error(generate_error_message('Lambda','timeout must be 7 seconds or less',context))
-
 
 def validateResponse(request,response):
     """Validate the response to a request.
@@ -321,7 +337,6 @@ def validateDiscoveryResponse(request,response):
         if discoveredAppliance['additionalApplianceDetails'] is not None:
             if sys.getsizeof(discoveredAppliance['additionalApplianceDetails']) > 5000: raise_value_error(generate_error_message(response_name,'additionalApplianceDetails must not exceed 5000 bytes',discoveredAppliance))
 
-
 def validateControlResponse(request,response):
     """Validate the response to a Control request.
 
@@ -348,6 +363,26 @@ def validateControlResponse(request,response):
         if bool(payload): raise_value_error(generate_error_message(response_name,'payload must be empty',payload))
     else:
         if not bool(payload): raise_value_error(generate_error_message(response_name,'payload must not be empty',payload))
+
+    # Validate color and color temperature control response payload
+    if response_name in ['SetColorConfirmation','SetColorTemperatureConfirmation','IncrementColorTemperatureConfirmation','DecrementColorTemperatureConfirmation']:
+        # Validate payload
+        if 'achievedState' not in payload: raise_value_error(generate_error_message(response_name,'payload.achievedState is missing',payload))
+
+        if response_name == 'SetColorConfirmation':
+            if 'color' not in payload['achievedState']: raise_value_error(generate_error_message(response_name,'payload.achievedState.color is missing',payload))
+            for required_key in ['hue','saturation','brightness']:
+                if required_key not in payload['achievedState']['color']: raise_value_error(generate_error_message(response_name,'payload.achievedState.color.' + format(required_key) + ' is missing',payload))
+                if not is_number(payload['achievedState']['color'][required_key]): raise_value_error(generate_error_message(response_name,'payload.achievedState.color.' + format(required_key) + ' must be a number',payload))
+            if payload['achievedState']['color']['hue'] < 0 or payload['achievedState']['color']['hue'] > 360: raise_value_error(generate_error_message(response_name,'payload.achievedState.color.hue must be between 0.00 and 360.00 inclusive',payload))
+            if payload['achievedState']['color']['saturation'] < 0 or payload['achievedState']['color']['saturation'] > 1: raise_value_error(generate_error_message(response_name,'payload.achievedState.color.saturation must be between 0.0000 and 1.0000 inclusive',payload))
+            if payload['achievedState']['color']['brightness'] < 0 or payload['achievedState']['color']['brightness'] > 1: raise_value_error(generate_error_message(response_name,'payload.achievedState.color.brightness must be between 0.0000 and 1.0000 inclusive',payload))
+
+        if response_name in ['SetColorTemperatureConfirmation','IncrementColorTemperatureConfirmation','DecrementColorTemperatureConfirmation']:
+            if 'colorTemperature' not in payload['achievedState']: raise_value_error(generate_error_message(response_name,'payload.achievedState.colorTemperature is missing',payload))
+            if 'value' not in payload['achievedState']['colorTemperature']: raise_value_error(generate_error_message(response_name,'payload.achievedState.colorTemperature.value is missing',payload))
+            if not isinstance(payload['achievedState']['colorTemperature']['value'], int): raise_value_error(generate_error_message(response_name,'payload.achievedState.colorTemperature.value must be an integer',payload))
+            if payload['achievedState']['colorTemperature']['value'] < 1000 or payload['achievedState']['colorTemperature']['value'] > 10000: raise_value_error(generate_error_message(response_name,'payload.achievedState.colorTemperature.value must be between 1000 and 10000 inclusive',payload))
 
     # Validate thermostat control response payload
     if response_name in ['SetTargetTemperatureConfirmation','IncrementTargetTemperatureConfirmation','DecrementTargetTemperatureConfirmation']: 
@@ -485,7 +520,6 @@ def validateQueryResponse(request,response):
         for required_key in ['code','description']:
             if required_key not in payload['errorInfo']: raise_value_error(generate_error_message(response_name,'payload.errorInfo' + format(required_key) + ' is missing',payload))
         if payload['errorInfo']['code'] not in VALID_UNABLE_ERROR_INFO_CODES: raise_value_error(generate_error_message(response_name,'payload.errorInfo.code is invalid',payload))
-
 
 def validateResponseHeader(request,response):
     """Validate the response header.
