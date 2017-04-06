@@ -28,7 +28,7 @@ At the beginning of your Lambda handler function, add the context validation. Fo
 ```javascript
 exports.handler = function(request, context) {
 	try {
-		validator.validateContext(request, response);
+		validator.validateContext(context);
 	} catch (error) {
 	    log('FATAL', error);
 	    throw(error);
