@@ -166,6 +166,13 @@ VALID_CURRENT_DEVICE_MODES = [
     'OTHER',
     'COLOR'
 ]
+VALID_LOCK_STATES = [
+    'LOCKED',
+    'UNLOCKED'
+]
+VALID_UNWILLING_ERROR_INFO_CODES = [
+    'ThermostatIsOff'
+]
 VALID_UNABLE_ERROR_INFO_CODES = [
     'DEVICE_AJAR',
     'DEVICE_BUSY',
@@ -175,27 +182,20 @@ VALID_UNABLE_ERROR_INFO_CODES = [
     'LOW_BATTERY',
     'NOT_CALIBRATED'
 ]
-VALID_UNWILLING_ERROR_INFO_CODES = [
-    'ThermostatIsOff'
-]
 VALID_TIME_UNITS = [
     'MINUTE',
     'HOUR',
     'DAY'
 ]
-VALID_LOCK_STATES = [
-    'LOCKED',
-    'UNLOCKED'
+REQUIRED_RESPONSE_KEYS = [
+    'header',
+    'payload'
 ]
 REQUIRED_HEADER_KEYS = [
     'namespace',
     'name',
     'payloadVersion',
     'messageId'
-]
-REQUIRED_RESPONSE_KEYS = [
-    'header',
-    'payload'
 ]
 REQUIRED_DISCOVERED_APPLIANCE_KEYS = [
     'applianceId',

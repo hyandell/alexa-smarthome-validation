@@ -14,13 +14,9 @@ language governing permissions and limitations under the License.
 */
 
 /**
- * This sample demonstrates a  smart home skill using the publicly available API on Amazon's Alexa platform.
+ * This sample demonstrates a smart home skill using the publicly available API on Amazon's Alexa platform.
  * For more information about developing smart home skills see 
  *  https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/content/smart-home
- * 
- * The Alexa smart home API currently supports:
- *  - Dimmable and Non-dimmable lighting
- *  - Thermostats
  * 
  * For details on the smart home API please visit
  *  https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference
@@ -36,6 +32,7 @@ var validator = require('validation');
 exports.handler = function(request, context) {  
     try{
         validator.validateContext(context);
+        
         log('INFO','Request Header: ' + JSON.stringify(request.header));
         log('INFO','Request Payload: ' + JSON.stringify(request.payload));
         var resp = {};
@@ -47,6 +44,7 @@ exports.handler = function(request, context) {
         }
         log('INFO','Response Header: ' + JSON.stringify(resp.header));
         log('INFO','Response Payload: ' + JSON.stringify(resp.payload));
+        
         validator.validateResponse(request, resp);   
         context.succeed(resp);
     } catch(err){
@@ -125,6 +123,9 @@ function handleControl(request, context) {
         var target_mode = 'OFF';
         var response = generateTemperatureResponse(request,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature);
     }
+    else if (appliance_id === 'Dimmer-001'){
+        var response = generateLightingResponse(request);
+    }
     else if (appliance_id === 'Lock-001'){
         if (request_name === 'SetLockStateRequest'){
             response_name = 'SetLockStateConfirmation';
@@ -138,7 +139,7 @@ function handleControl(request, context) {
         var response = generateResponse(header,payload);
     }
     else if (isSampleErrorAppliance(appliance_id)){
-        response_name = appliance_id.replace('-002','');
+        response_name = appliance_id.split("-")[0];
         var header = generateResponseHeader(request,response_name);
         var payload = {}
         if (response_name === 'ValueOutOfRangeError'){
@@ -159,15 +160,16 @@ function handleControl(request, context) {
             };
         }
         else if (isInArray(['UnableToGetValueError','UnableToSetValueError'], response_name)){
-            payload = {
-                'errorInfo': {
-                    'code': 'LOW_BATTERY',
-                    'description': 'The requested operation cannot be completed because the device has low battery.',
-                }
-            };
+            var code = appliance_id.split("-")[1];
             if (response_name === 'UnableToGetValueError'){
                 header.namespace = 'Alexa.ConnectedHome.Query';
             }
+            payload = {
+                'errorInfo': {
+                    'code': code,
+                    'description': 'The requested operation cannot be completed because the device is ' + code,
+                }
+            };
         }
         else if (response_name === 'UnwillingToSetValueError'){
             payload = {
@@ -184,8 +186,9 @@ function handleControl(request, context) {
             };
         }
         else if (response_name == 'NotSupportedInCurrentModeError'){
+            var code = appliance_id.split("-")[1];
             payload = {
-                'currentDeviceMode': 'AWAY',
+                'currentDeviceMode': code,
             };
         }
         else if (response_name == 'UnexpectedInformationReceivedError'){
@@ -346,14 +349,44 @@ function generateSampleErrorAppliances(){
                 sample_error_appliances.push(sample_error_appliance);
                 device_number++;
             });
-        } else {
+        }
+        else if (isInArray(['NotSupportedInCurrentModeError'], error)){
+            ['HEAT','COOL','AUTO','AWAY','OTHER','COLOR'].forEach( function( code ){
+                var friendly_name = generateErrorFriendlyName(device_number);
+                var friendly_description = 'Alexa turn on ' + friendly_name + '. Response: ' + error + ' code: ' + code;
+                var model_name = 'Switch';
+                if (code === 'COLOR'){
+                    model_name = 'Light';
+                }
+                var sample_error_appliance = {
+                    'applianceId': error + '-' + code + '-002',
+                    'manufacturerName': SAMPLE_MANUFACTURER,
+                    'modelName': model_name,
+                    'version': '1',
+                    'friendlyName': friendly_name,
+                    'friendlyDescription': friendly_description,
+                    'isReachable': true,
+                    'actions': [
+                        'turnOn',
+                        'turnOff',
+                        'incrementColorTemperature',
+                        'decrementColorTemperature',                        
+                    ],
+                    'additionalApplianceDetails': {}
+                }
+                sample_error_appliances.push(sample_error_appliance);
+                device_number++;
+            });
+        }
+        else {
+            var friendly_name = generateErrorFriendlyName(device_number);
             var sample_error_appliance = {
                 'applianceId': error + '-002',
                 'manufacturerName': SAMPLE_MANUFACTURER,
                 'modelName': 'Switch',
                 'version': '1',
-                'friendlyName': 'Device ' + device_number,
-                'friendlyDescription': 'Alexa turn on Device ' + friendly_name + '. Response: ' + error,
+                'friendlyName': friendly_name,
+                'friendlyDescription': 'Alexa turn on ' + friendly_name + '. Response: ' + error,
                 'isReachable': true,
                 'actions': [
                     'turnOn',
@@ -395,6 +428,80 @@ function generateResponse(header,payload){
         'header': header,
         'payload': payload,
     };
+    return response;
+}
+function generateLightingResponse(request){
+    var request_name = request.header.name;
+    var message_id = request.header.messageId;
+    var response_name;
+    var payload = {};
+    
+    // valid request
+    if (request_name === 'TurnOnRequest'){
+        response_name = 'TurnOnConfirmation';
+    }
+    else if (request_name === 'TurnOffRequest'){
+        response_name = 'TurnOffConfirmation';
+    }
+    else if (request_name === 'SetPercentageRequest'){
+        response_name = 'SetPercentageConfirmation';
+    }
+    else if (request_name === 'IncrementPercentageRequest'){
+        response_name = 'IncrementPercentageConfirmation';
+    }
+    else if (request_name === 'DecrementPercentageRequest'){
+        response_name = 'DecrementPercentageConfirmation';
+    }
+    else if (request_name === 'SetColorRequest'){
+        response_name = 'SetColorConfirmation';
+        payload = {
+            'achievedState': {
+                'color': {
+                    'hue': request.payload.color.hue,
+                    'saturation': request.payload.color.saturation,
+                    'brightness': request.payload.color.brightness,
+                }
+            }
+        };
+    }
+    else if (request_name === 'SetColorTemperatureRequest'){
+        response_name = 'SetColorTemperatureConfirmation';
+        payload = {
+            'achievedState': {
+                'colorTemperature': {
+                    'value': request.payload.colorTemperature.value
+                }
+            }
+        };
+    }
+    else if (request_name === 'IncrementColorTemperatureRequest'){
+        response_name = 'IncrementColorTemperatureConfirmation';
+        payload = {
+            'achievedState': {
+                'colorTemperature': {
+                    'value': 3000
+                }
+            }
+        };
+    }
+    else if (request_name === 'DecrementColorTemperatureRequest'){
+        response_name = 'DecrementColorTemperatureConfirmation';
+        payload = {
+            'achievedState': {
+                'colorTemperature': {
+                    'value': 2000
+                }
+            }
+        };
+    }
+    else {
+        response_name = 'UnexpectedInformationReceivedError';
+        payload = {
+            'faultingParameter': 'request.name: ' + request_name
+        }
+    }
+    var header = generateResponseHeader(request,response_name);
+    var response = generateResponse(header,payload);
     return response;
 }
 function generateTemperatureResponse(request,previous_temperature,previous_mode,target_mode,minimum_temperature,maximum_temperature){
@@ -498,17 +605,15 @@ var SAMPLE_APPLIANCES = [
                 'turnOn',
                 'turnOff',
             ],
-            'additionalApplianceDetails': {
-                'extraDetail1': 'This is an on/off switch that is online and reachable',
-            }        
+            'additionalApplianceDetails': {}        
         },
         {
             'applianceId': 'Dimmer-001',
             'manufacturerName': SAMPLE_MANUFACTURER,
-            'modelName': 'Dimmer',
+            'modelName': 'Light',
             'version': '1',
-            'friendlyName': 'Upstairs Dimmer',
-            'friendlyDescription': 'Dimmer that is functional and reachable',
+            'friendlyName': 'Upstairs Light',
+            'friendlyDescription': 'Light that is functional (brightness, color, color temperature) and reachable',
             'isReachable': true,
             'actions': [
                 'turnOn',
@@ -516,10 +621,12 @@ var SAMPLE_APPLIANCES = [
                 'setPercentage',
                 'incrementPercentage',
                 'decrementPercentage',
+                'setColor',
+                'setColorTemperature',
+                'incrementColorTemperature',
+                'decrementColorTemperature',                
             ],
-            'additionalApplianceDetails': {
-                'extraDetail1': 'This is a dimmer that is online and reachable',
-            }        
+            'additionalApplianceDetails': {}        
         },
         {
             'applianceId': 'Fan-001',
@@ -536,9 +643,7 @@ var SAMPLE_APPLIANCES = [
                 'incrementPercentage',
                 'decrementPercentage',
             ],
-            'additionalApplianceDetails': {
-                'extraDetail1': 'This is a fan that is online and reachable',
-            }        
+            'additionalApplianceDetails': {}        
         },
         {
             'applianceId': 'SwitchUnreachable-001',
@@ -552,9 +657,7 @@ var SAMPLE_APPLIANCES = [
                 'turnOn',
                 'turnOff',
             ],
-            'additionalApplianceDetails': {
-                'extraDetail1': 'This is an on/off switch that is not reachable and should show as offline in the Alexa app',
-            }
+            'additionalApplianceDetails': {}
         },
         {
             'applianceId': 'ThermostatAuto-001',

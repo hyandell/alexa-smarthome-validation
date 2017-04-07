@@ -41,7 +41,11 @@ var VALID_CONTROL_REQUEST_NAMES = [
     'SetPercentageRequest',
     'IncrementPercentageRequest',
     'DecrementPercentageRequest',
-    'SetLockStateRequest'
+    'SetLockStateRequest',
+    'SetColorRequest',
+    'SetColorTemperatureRequest',
+    'IncrementColorTemperatureRequest',
+    'DecrementColorTemperatureRequest'
 ];
 var VALID_QUERY_REQUEST_NAMES = [
     'GetLockStateRequest',
@@ -68,7 +72,11 @@ var VALID_CONTROL_RESPONSE_NAMES = [
     'SetPercentageConfirmation',
     'IncrementPercentageConfirmation',
     'DecrementPercentageConfirmation',
-    'SetLockStateConfirmation'
+    'SetLockStateConfirmation',
+    'SetColorConfirmation',
+    'SetColorTemperatureConfirmation',
+    'IncrementColorTemperatureConfirmation',
+    'DecrementColorTemperatureConfirmation'
 ];
 var VALID_QUERY_RESPONSE_NAMES = [
     'GetLockStateResponse',
@@ -88,6 +96,8 @@ var VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'TargetBridgeFirmwareOutdatedError',
     'TargetHardwareMalfunctionError',
     'TargetBridgeHardwareMalfunctionError',
+    'UnableToGetValueError',
+    'UnableToSetValueError',
     'UnwillingToSetValueError',
     'RateLimitExceededError',
     'NotSupportedInCurrentModeError',
@@ -96,9 +106,7 @@ var VALID_CONTROL_ERROR_RESPONSE_NAMES = [
     'UnsupportedTargetError',
     'UnsupportedOperationError',
     'UnsupportedTargetSettingError',
-    'UnexpectedInformationReceivedError',
-    'UnableToGetValueError',
-    'UnableToSetValueError'
+    'UnexpectedInformationReceivedError'
 ];
 var VALID_SYSTEM_RESPONSE_NAMES = [
     'HealthCheckResponse'
@@ -110,32 +118,40 @@ var VALID_RESPONSE_NAMES = VALID_DISCOVERY_RESPONSE_NAMES
                             .concat(VALID_QUERY_RESPONSE_NAMES);
 
 var VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES = [
+    'SetColorConfirmation',
+    'SetColorTemperatureConfirmation',
+    'IncrementColorTemperatureConfirmation',
+    'DecrementColorTemperatureConfirmation',
     'SetTargetTemperatureConfirmation',
     'IncrementTargetTemperatureConfirmation',
     'DecrementTargetTemperatureConfirmation',
-    'ValueOutOfRangeError',
     'GetTemperatureReadingResponse',
     'GetTargetTemperatureResponse',
+    'SetLockStateConfirmation',
+    'GetLockStateResponse',
+    'ValueOutOfRangeError',
     'DependentServiceUnavailableError',
     'TargetFirmwareOutdatedError',
     'TargetBridgeFirmwareOutdatedError',
-    'UnwillingToSetValueError',
     'UnableToGetValueError',
     'UnableToSetValueError',
+    'UnwillingToSetValueError',
     'RateLimitExceededError',
     'NotSupportedInCurrentModeError',
-    'UnexpectedInformationReceivedError',
-    'SetLockStateConfirmation',
-    'GetLockStateResponse'
+    'UnexpectedInformationReceivedError'
 ];
 var VALID_ACTIONS = [
+    'decrementColorTemperature',
     'decrementPercentage',
     'decrementTargetTemperature',
     'getTargetTemperature',
     'getTemperatureReading',
     'getLockState',
+    'incrementColorTemperature',
     'incrementPercentage',
     'incrementTargetTemperature',
+    'setColor',
+    'setColorTemperature',
     'setLockState',
     'setPercentage',
     'setTargetTemperature',
@@ -155,8 +171,9 @@ var VALID_CURRENT_DEVICE_MODES = [
     'COOL',
     'AUTO',
     'AWAY',
-    'OTHER'
-];
+    'OTHER',
+    'COLOR'
+]
 var VALID_LOCK_STATES = [
     'LOCKED',
     'UNLOCKED'
@@ -204,12 +221,12 @@ var MAX_DISCOVERED_APPLIANCES = 300;
 function validateContext(context){
     /*Validate the Lambda context.
 
-	Currently, this method just checks to ensure that the Lambda timeout is set to 7 seconds or less.
-	This is to ensure that your Lambda times out and errors before Alexa times out (8 seconds), 
-	allowing you to see the timeout error. Otherwise, you could take > 8 seconds to respond and even
-	though you think you have responded properly and without error, Alexa actually timed out resulting
-	in an error to the user.
-	*/
+    Currently, this method just checks to ensure that the Lambda timeout is set to 7 seconds or less.
+    This is to ensure that your Lambda times out and errors before Alexa times out (8 seconds), 
+    allowing you to see the timeout error. Otherwise, you could take > 8 seconds to respond and even
+    though you think you have responded properly and without error, Alexa actually timed out resulting
+    in an error to the user.
+    */
     if(context.getRemainingTimeInMillis() > 7000){
         throw new Error(generateErrorMessage('Lambda', 'timeout must be 7 seconds or less', context));
     }
@@ -218,10 +235,10 @@ function validateContext(context){
 function validateResponse(request, response){
     /*Validate the response to a request.
 
-	This is the main validation method to be called in your Lambda handler, just before you return
-	the response to Alexa. This method validates the request to ensure it is valid, and then dispatches
-	to specific response validation methods depending on the request namespace.
-	*/
+    This is the main validation method to be called in your Lambda handler, just before you return
+    the response to Alexa. This method validates the request to ensure it is valid, and then dispatches
+    to specific response validation methods depending on the request namespace.
+    */
 
     // Validate request
     if (!request){
@@ -236,7 +253,7 @@ function validateResponse(request, response){
     catch(err){
         throw new Error(generateErrorMessage('Request','request is invalid',request));
     }
-    	
+        
     // Validate response
     if (!response){
         throw new Error(generateErrorMessage('Response', 'response is missing', response));
@@ -268,11 +285,11 @@ function validateResponse(request, response){
 }
 
 function validateSystemResponse(request,response){
-	/*Validate the response to a Health Check request.
+    /*Validate the response to a Health Check request.
 
-	This method validates the response to a Health Check request, based on the API reference:
-	https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#health-check-messages
-	*/
+    This method validates the response to a Health Check request, based on the API reference:
+    https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#health-check-messages
+    */
 
     //Validate header
     validateResponseHeader(request,response);
@@ -280,7 +297,7 @@ function validateSystemResponse(request,response){
 
     // Validate response payload
     try{
-    	payload = response.payload;
+        payload = response.payload;
     }
     catch (err){
         throw new Error(generateErrorMessage(response.header.name, 'payload is missing', payload));
@@ -300,13 +317,14 @@ function validateSystemResponse(request,response){
     if (!(payload.isHealthy instanceof boolean)){
         throw new Error(generateErrorMessage(response_name,'payload.isHealthy must be a boolean',payload));
     } 
-} 
+}
+
 function validateDiscoveryResponse(request, response){
     /*Validate the response to a DiscoverApplianceRequest request.
 
-	This method validates the response to a DiscoverApplianceRequest request, based on the API reference:
-	https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#discoverappliancesresponse
-	*/
+    This method validates the response to a DiscoverApplianceRequest request, based on the API reference:
+    https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#discoverappliancesresponse
+    */
 
     // Validate header
     validateResponseHeader(request, response);
@@ -443,9 +461,53 @@ function validateControlResponse(request, response){
             throw new Error(generateErrorMessage(response_name, 'payload must be empty', payload))
         }
     }
+    // Validate color and color temperature control response payload 
+    if (isInArray(['SetColorConfirmation','SetColorTemperatureConfirmation','IncrementColorTemperatureConfirmation','DecrementColorTemperatureConfirmation'], response_name)){
+        // Validate payload
+        if (!('achievedState' in payload)){
+            throw new Error(generateErrorMessage(response_name, 'payload.achievedState is missing', payload));
+        }
 
+        if(isInArray(['SetColorConfirmation'], response_name)){
+            if (!('color' in payload.achievedState)){
+                throw new Error(generateErrorMessage(response_name, 'payload.achievedState.color is missing', payload));
+            }
+            ['hue','saturation','brightness'].forEach( function(key){
+                if (!(key in payload.achievedState.color)){
+                    throw new Error(generateErrorMessage(response_name, 'payload.achievedState.color.' + key + ' is missing', payload));
+                }
+                if (typeof payload.achievedState.color[key] != 'number'){
+                    throw new Error(generateErrorMessage(response_name,'payload.achievedState.color.' + key + '.value must be a number',payload));
+                }
+            });
+            if (payload.achievedState.color.hue < 0 || payload.achievedState.color.hue > 360){
+                throw new Error(generateErrorMessage(response_name, 'payload.achievedState.color.hue must be between 0.00 and 360.00 inclusive', payload));
+            }
+            if (payload.achievedState.color.saturation < 0 || payload.achievedState.color.saturation > 1){
+                throw new Error(generateErrorMessage(response_name, 'payload.achievedState.color.saturation must be between 0.0000 and 1.0000 inclusive', payload));
+            }
+            if (payload.achievedState.color.brightness < 0 || payload.achievedState.color.brightness > 1){
+                throw new Error(generateErrorMessage(response_name, 'payload.achievedState.color.brightness must be between 0.0000 and 1.0000 inclusive', payload));
+            }
+        }
+
+        if(isInArray(['SetColorTemperatureConfirmation','IncrementColorTemperatureConfirmation','DecrementColorTemperatureConfirmation'], response_name)){
+            if (!('colorTemperature' in payload.achievedState)){
+                throw new Error(generateErrorMessage(response_name, 'payload.achievedState.colorTemperature is missing', payload));
+            }
+            if (!('value' in payload.achievedState.colorTemperature)){
+                throw new Error(generateErrorMessage(response_name, 'payload.achievedState.colorTemperature.value is missing', payload));
+            }
+            if (typeof payload.achievedState.colorTemperature.value != 'number'){
+                throw new Error(generateErrorMessage(response_name,'payload.achievedState.colorTemperature.value must be an integer',payload));
+            }
+            if (payload.achievedState.colorTemperature.value < 1000 || payload.achievedState.colorTemperature.value > 10000){
+                throw new Error(generateErrorMessage(response_name, 'payload.achievedState.colorTemperature.value must be between 1000 and 10000 inclusive', payload));
+            }
+        }
+    }
     // Validate thermostat control response payload
-    if (isInArray(['SetTargetTemperatureConfirmation','IncrementTargetTemperatureConfirmation','DecrementTargetTemperatureConfirmation'], request_name)){
+    if (isInArray(['SetTargetTemperatureConfirmation','IncrementTargetTemperatureConfirmation','DecrementTargetTemperatureConfirmation'], response_name)){
         // Validate payload
         ['targetTemperature','temperatureMode','previousState'].forEach( function(key){
             if (!(key in payload)){
@@ -560,13 +622,13 @@ function validateControlResponse(request, response){
             if (!(key in payload)){
                 throw new Error(generateErrorMessage(response_name, 'payload.' + key + ' is missing', payload));
             }
-            if (payload.rateLimit <= 0){
-                throw new Error(generateErrorMessage(response_name, 'payload.rateLimit must be a positive integer', payload));
-            }
-            if (!(isInArray(VALID_TIME_UNITS, payload.timeUnit))){
-                throw new Error(generateErrorMessage(response_name, 'payload.timeUnit is invalid', payload));
-            }
         });
+        if (payload.rateLimit <= 0){
+            throw new Error(generateErrorMessage(response_name, 'payload.rateLimit must be a positive integer', payload));
+        }
+        if (!(isInArray(VALID_TIME_UNITS, payload.timeUnit))){
+            throw new Error(generateErrorMessage(response_name, 'payload.timeUnit is invalid', payload));
+        }
     }
 
     if (response_name === 'NotSupportedInCurrentModeError'){
