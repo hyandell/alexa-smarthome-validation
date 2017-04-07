@@ -89,6 +89,10 @@ return response
 
 Test your skill with some bad responses to see if this works. Then you should setup some CloudWatch alarms on error metrics for your Lambda to be alerted of these errors going forward.
 
+# Sample Lambdas
+
+This package also provides sample lambda.js and lambda.py files that you can use, to get started with developing a Smart Home skill, or to see how this validation package is used. Note that both sample Lambdas simply generate a number of virtual, stateless devices, including a number of "error" devices, so you can use those to hear what Alexa's response will be if your Lambda sends back an [Error message](https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#error-messages).
+
 # Updates
 
 Please watch this repo as we will update these validation packages every time the Smart Home API is updated.
