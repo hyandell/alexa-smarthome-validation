@@ -38,6 +38,8 @@ exports.handler = function(request, context) {
 
 Your Lambda will immediately fail if your Lambda's timeout setting is greater than 7 seconds.
 
+NOTE: If your skill has lock capabilities, you may need to set this timeout check to 60 seconds or more.
+
 Then, anytime you return a response, i.e. context.succeed(response), add a validation check in a try/catch block. Note that if you already have a live skill and you want to be safe, just wrap the call to validator.validateResponse in a try/catch block. This allows you to log an error for your reference, while still returning a response from your Lambda. For example:
 ```javascript
 var response = {header, payload};
@@ -77,6 +79,8 @@ def lambda_handler(event,context):
 ```
 
 Your Lambda will immediately fail if your Lambda's timeout setting is greater than 7 seconds.
+
+NOTE: If your skill has lock capabilities, you may need to set this timeout check to 60 seconds or more.
 
 Then, anytime you return a response, i.e. context.succeed(response), add a validation check in a try/catch block. Note that if you already have a live skill and you want to be safe, just wrap the call to validator.validateResponse in a try/catch block. This allows you to log an error for your reference, while still returning a response from your Lambda. For example:
 ```python
