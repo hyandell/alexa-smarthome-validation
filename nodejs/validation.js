@@ -393,7 +393,7 @@ function validateDiscoveryResponse(request, response){
         if (appliance.friendlyName.length > 128){
             throw new Error(generateErrorMessage(response_name, 'friendlyName cannot exceed 128 characters', appliance)); 
         }
-        if (!appliance.friendlyName.match("^[a-zA-Z0-9 ]*$")){
+        if (!appliance.friendlyName.match("^[a-zA-Z0-9äüöÄÜÖß ]*$")){
             throw new Error(generateErrorMessage(response_name, 'friendlyName cannot contain punctuation or special characters', appliance)); 
         }
         if (isEmpty(appliance.friendlyDescription)){
@@ -582,7 +582,7 @@ function validateControlResponse(request, response){
             if (isEmpty(payload[key])){
                  throw new Error(generateErrorMessage(response_name, 'payload.' + key + ' must not be empty', payload));
             }
-            if (!(payload[key].match('^[a-zA-Z0-9]*$'))){
+            if (!(payload[key].match('^[a-zA-Z0-9äüöÄÜÖß]*$'))){
                 throw new Error(generateErrorMessage(response_name, 'payload.' + key + ' must be specifed in alphanumeric characters and spaces', payload));
        
             }
