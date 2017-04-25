@@ -2,20 +2,20 @@
 
 # Copyright 2016-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
-# Licensed under the Amazon Software License (the "License"). You may not use this file except in 
+# Licensed under the Amazon Software License (the "License"). You may not use this file except in
 # compliance with the License. A copy of the License is located at
-# 
+#
 #     http://aws.amazon.com/asl/
-# 
-# or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS, 
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific 
+#
+# or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 
 """Alexa Smart Home API Validation Package for Python.
 
-This module is used by Alexa Smart Home API third party (3P) developers to validate their Lambda 
-responses before sending them back to Alexa. If an error is found, an exception is thrown so that 
-the 3P can catch the error and do something about it, instead of sending it back to Alexa and 
+This module is used by Alexa Smart Home API third party (3P) developers to validate their Lambda
+responses before sending them back to Alexa. If an error is found, an exception is thrown so that
+the 3P can catch the error and do something about it, instead of sending it back to Alexa and
 causing an error on the Alexa side.
 
 The validations are based on the current public Alexa Smart Home API reference:
@@ -215,13 +215,16 @@ def validateContext(context):
     """Validate the Lambda context.
 
     Currently, this method just checks to ensure that the Lambda timeout is set to 7 seconds or less.
-    This is to ensure that your Lambda times out and errors before Alexa times out (8 seconds), 
+    This is to ensure that your Lambda times out and errors before Alexa times out (8 seconds),
     allowing you to see the timeout error. Otherwise, you could take > 8 seconds to respond and even
     though you think you have responded properly and without error, Alexa actually timed out resulting
     in an error to the user.
+
+    NOTE: if your skill handles locks, then set the timeout here to 60 seconds or less, as is required
+    by the locks portion of the Smart Home Skill API.
     """
 
-    if context.get_remaining_time_in_millis() > 7000: raise_value_error(generate_error_message('Lambda','timeout must be 7 seconds or less',context))
+    if context.get_remaining_time_in_millis() > 7000: raise_value_error(generate_error_message('Lambda','timeout must be 7 seconds or less (if your skill handles locks, change timeout validation to 60 seconds or less)',context))
 
 def validateResponse(request,response):
     """Validate the response to a request.
@@ -264,7 +267,7 @@ def validateSystemResponse(request,response):
 
     This method validates the response to a Health Check request, based on the API reference:
     https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#health-check-messages
-    """ 
+    """
 
     # Validate header
     validateResponseHeader(request,response)
@@ -288,7 +291,7 @@ def validateDiscoveryResponse(request,response):
 
     This method validates the response to a DiscoverApplianceRequest request, based on the API reference:
     https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#discoverappliancesresponse
-    """ 
+    """
 
     # Validate header
     validateResponseHeader(request,response)
@@ -309,7 +312,7 @@ def validateDiscoveryResponse(request,response):
 
     # Validate each discovered appliance
     for discoveredAppliance in payload['discoveredAppliances']:
-        
+
         for required_key in REQUIRED_DISCOVERED_APPLIANCE_KEYS:
             if required_key not in discoveredAppliance: raise_value_error(generate_error_message(response_name,format(required_key) + ' is missing',discoveredAppliance))
 
@@ -342,7 +345,7 @@ def validateControlResponse(request,response):
 
     This method validates the response to a Control (e.g. turn on/off, set temperatures, etc.) request, based on the API reference (starting from):
     https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#onoff-messages
-    """ 
+    """
 
     # Validate header
     validateResponseHeader(request,response)
@@ -385,7 +388,7 @@ def validateControlResponse(request,response):
             if payload['achievedState']['colorTemperature']['value'] < 1000 or payload['achievedState']['colorTemperature']['value'] > 10000: raise_value_error(generate_error_message(response_name,'payload.achievedState.colorTemperature.value must be between 1000 and 10000 inclusive',payload))
 
     # Validate thermostat control response payload
-    if response_name in ['SetTargetTemperatureConfirmation','IncrementTargetTemperatureConfirmation','DecrementTargetTemperatureConfirmation']: 
+    if response_name in ['SetTargetTemperatureConfirmation','IncrementTargetTemperatureConfirmation','DecrementTargetTemperatureConfirmation']:
         # Validate payload
         for required_key in ['targetTemperature','temperatureMode','previousState']:
             if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
@@ -462,7 +465,7 @@ def validateQueryResponse(request,response):
 
     This method validates the response to a Query (e.g. ambient temperature, lock state, etc.) request, based on the API reference (starting from):
     https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#onoff-messages
-    """ 
+    """
 
     # Validate header
     validateResponseHeader(request,response)
@@ -484,13 +487,13 @@ def validateQueryResponse(request,response):
         if not bool(payload): raise_value_error(generate_error_message(response_name,'payload must not be empty',payload))
 
     # Validate thermostat query response payload
-    if response_name in 'GetTemperatureReadingResponse': 
+    if response_name in 'GetTemperatureReadingResponse':
         for required_key in ['temperatureReading']:
             if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
         if 'value' not in payload['temperatureReading']: raise_value_error(generate_error_message(response_name,'payload.temperatureReading.value is missing',payload))
         if not is_number(payload['temperatureReading']['value']): raise_value_error(generate_error_message(response_name,'payload.temperatureReading.value must be a number',payload))
 
-    if response_name in 'GetTargetTemperatureResponse': 
+    if response_name in 'GetTargetTemperatureResponse':
         for required_key in ['temperatureMode']:
             if required_key not in payload: raise_value_error(generate_error_message(response_name,'payload.' + format(required_key) + ' is missing',payload))
         if 'value' not in payload['temperatureMode']: raise_value_error(generate_error_message(response_name,'payload.temperatureMode.value is missing',payload))
@@ -526,7 +529,7 @@ def validateResponseHeader(request,response):
 
     This method validates the header of the responses, based on the API reference:
     https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#skill-adapter-directives
-    """ 
+    """
 
     request_name = request['header']['name']
     header = response['header']
@@ -561,13 +564,13 @@ def validateResponseHeader(request,response):
         if header['name'] not in VALID_CONTROL_ERROR_RESPONSE_NAMES:
             correct_response_name = request_name.replace('Request','Response')
             if header['name'] != correct_response_name: raise_value_error(generate_error_message('Query Response','header.name must be an error response name or ' + correct_response_name + ' for ' + request_name,header))
-    
+
     if request_name in VALID_SYSTEM_REQUEST_NAMES:
         if header['namespace'] != 'Alexa.ConnectedHome.System': raise_value_error(generate_error_message('System Response','header.namespace must be Alexa.ConnectedHome.System',header))
         if header['name'] not in VALID_SYSTEM_RESPONSE_NAMES: raise_value_error(generate_error_message('System Response','header.name is invalid',header))
         correct_response_name = request_name.replace('Request','Response')
         if header['name'] != correct_response_name: raise_value_error(generate_error_message('System Response','header.name must be ' + correct_response_name + ' for ' + request_name,header))
-    
+
     # Validate common header constraints
     if header['payloadVersion'] != '2': raise_value_error(generate_error_message(header['name'],'header.payloadVersion must be \'2\' (string)',header))
     if not re.match('^[a-zA-Z0-9\-]*$',header['messageId']): raise_value_error(generate_error_message(header['name'],'header.messageId must be specified in alphanumeric characters or - ',header))
@@ -588,7 +591,7 @@ def is_alphanumeric_and_spaces(s):
     return re.match('^[a-zA-Z0-9äüöÄÜÖß ]*$',s)
 
 def is_alphanumeric(s):
-    return re.match('^[a-zA-Z0-9äüöÄÜÖß]*$',s)    
+    return re.match('^[a-zA-Z0-9äüöÄÜÖß]*$',s)
 
 def is_empty_string(s):
     return len(str(s).strip()) == 0

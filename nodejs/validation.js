@@ -3,22 +3,22 @@
 /*
 Copyright 2016-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
-Licensed under the Amazon Software License (the "License"). You may not use this file except in 
+Licensed under the Amazon Software License (the "License"). You may not use this file except in
 compliance with the License. A copy of the License is located at
 
     http://aws.amazon.com/asl/
 
-or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS, 
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific 
+or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific
 language governing permissions and limitations under the License.
 */
 
 /*
 Alexa Smart Home API Validation Package for Node.js.
 
-This module is used by Alexa Smart Home API third party (3P) developers to validate their Lambda 
-responses before sending them back to Alexa. If an error is found, an exception is thrown so that 
-the 3P can catch the error and do something about it, instead of sending it back to Alexa and 
+This module is used by Alexa Smart Home API third party (3P) developers to validate their Lambda
+responses before sending them back to Alexa. If an error is found, an exception is thrown so that
+the 3P can catch the error and do something about it, instead of sending it back to Alexa and
 causing an error on the Alexa side.
 
 The validations are based on the current public Alexa Smart Home API reference:
@@ -28,7 +28,7 @@ https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-
 /*
  * Various constants used in validation.
  */
- 
+
 var VALID_DISCOVERY_REQUEST_NAMES = [
     'DiscoverAppliancesRequest'
 ];
@@ -222,13 +222,16 @@ function validateContext(context){
     /*Validate the Lambda context.
 
     Currently, this method just checks to ensure that the Lambda timeout is set to 7 seconds or less.
-    This is to ensure that your Lambda times out and errors before Alexa times out (8 seconds), 
+    This is to ensure that your Lambda times out and errors before Alexa times out (8 seconds),
     allowing you to see the timeout error. Otherwise, you could take > 8 seconds to respond and even
     though you think you have responded properly and without error, Alexa actually timed out resulting
     in an error to the user.
+
+    NOTE: if your skill handles locks, then set the timeout here to 60 seconds or less, as is required
+    by the locks portion of the Smart Home Skill API.
     */
     if(context.getRemainingTimeInMillis() > 7000){
-        throw new Error(generateErrorMessage('Lambda', 'timeout must be 7 seconds or less', context));
+        throw new Error(generateErrorMessage('Lambda', 'timeout must be 7 seconds or less (if your skill handles locks, change timeout validation to 60 seconds or less)', context));
     }
 }
 
@@ -253,7 +256,7 @@ function validateResponse(request, response){
     catch(err){
         throw new Error(generateErrorMessage('Request','request is invalid',request));
     }
-        
+
     // Validate response
     if (!response){
         throw new Error(generateErrorMessage('Response', 'response is missing', response));
@@ -266,7 +269,7 @@ function validateResponse(request, response){
             throw new Error(generateErrorMessage('Response', required_key + ' is missing', response));
         }
     });
-        
+
     if(request.header.namespace === 'Alexa.ConnectedHome.Discovery'){
         validateDiscoveryResponse(request, response);
     }
@@ -310,13 +313,13 @@ function validateSystemResponse(request,response){
         if (!(required_key in payload)){
             throw new Error(generateErrorMessage(response_name,'payload.' + required_key + ' is missing',payload));
         }
-    });  
+    });
     if (isEmpty(payload.description)){
         throw new Error(generateErrorMessage(response_name,'payload.description must not be empty',payload));
     }
     if (!(payload.isHealthy instanceof boolean)){
         throw new Error(generateErrorMessage(response_name,'payload.isHealthy must be a boolean',payload));
-    } 
+    }
 }
 
 function validateDiscoveryResponse(request, response){
@@ -364,16 +367,16 @@ function validateDiscoveryResponse(request, response){
             throw new Error(generateErrorMessage(response_name, 'applianceId must not be empty', appliance));
         }
         if (appliance.applianceId.length > 256){
-            throw new Error(generateErrorMessage(response_name, 'applianceId cannot be exceed 256 characters', appliance)); 
+            throw new Error(generateErrorMessage(response_name, 'applianceId cannot be exceed 256 characters', appliance));
         }
         if (!appliance.applianceId.match("^[a-zA-Z0-9_\\-=;:?@&]*$")){
              throw new Error(generateErrorMessage(response_name, 'applianceId must be alphanumeric ' + 'or the following special characters: _-=;:?@&', appliance));
         }
         if (isEmpty(appliance.manufacturerName)){
-            throw new Error(generateErrorMessage(response_name, 'manufacturerName must not be empty', appliance)); 
+            throw new Error(generateErrorMessage(response_name, 'manufacturerName must not be empty', appliance));
         }
         if (appliance.manufacturerName.length > 128){
-            throw new Error(generateErrorMessage(response_name, 'manufacturerName cannot exceed 128 characters', appliance)); 
+            throw new Error(generateErrorMessage(response_name, 'manufacturerName cannot exceed 128 characters', appliance));
         }
         if (isEmpty(appliance.modelName)){
             throw new Error(generateErrorMessage(response_name, 'modelName cannot be empty', appliance));
@@ -388,22 +391,22 @@ function validateDiscoveryResponse(request, response){
             throw new Error(generateErrorMessage(response_name, 'version cannot exceed 128 characters', appliance));
         }
         if (isEmpty(appliance.friendlyName)){
-            throw new Error(generateErrorMessage(response_name, 'friendlyName cannot be empty', appliance)); 
+            throw new Error(generateErrorMessage(response_name, 'friendlyName cannot be empty', appliance));
         }
         if (appliance.friendlyName.length > 128){
-            throw new Error(generateErrorMessage(response_name, 'friendlyName cannot exceed 128 characters', appliance)); 
+            throw new Error(generateErrorMessage(response_name, 'friendlyName cannot exceed 128 characters', appliance));
         }
         if (!appliance.friendlyName.match("^[a-zA-Z0-9äüöÄÜÖß ]*$")){
-            throw new Error(generateErrorMessage(response_name, 'friendlyName cannot contain punctuation or special characters', appliance)); 
+            throw new Error(generateErrorMessage(response_name, 'friendlyName cannot contain punctuation or special characters', appliance));
         }
         if (isEmpty(appliance.friendlyDescription)){
-            throw new Error(generateErrorMessage(response_name, 'friendlyDescription cannot be empty', appliance)); 
+            throw new Error(generateErrorMessage(response_name, 'friendlyDescription cannot be empty', appliance));
         }
         if (appliance.friendlyDescription.length > 128){
-            throw new Error(generateErrorMessage(response_name, 'friendlyDescription cannot exceed 128 characters', appliance)); 
+            throw new Error(generateErrorMessage(response_name, 'friendlyDescription cannot exceed 128 characters', appliance));
         }
         if (!(appliance.isReachable instanceof Boolean || typeof appliance.isReachable === 'boolean')){
-            throw new Error(generateErrorMessage(response_name, 'isReachable must be a boolean', appliance)); 
+            throw new Error(generateErrorMessage(response_name, 'isReachable must be a boolean', appliance));
         }
         if (!(appliance.actions instanceof Array)){
             throw new Error(generateErrorMessage(response_name, 'actions must be a list', appliance));
@@ -413,13 +416,13 @@ function validateDiscoveryResponse(request, response){
         }
         appliance.actions.forEach( function(action){
             if(!(isInArray(VALID_ACTIONS, action))){
-                throw new Error(generateErrorMessage(response_name, JSON.stringify(action) + ' is not an allowed action', appliance)); 
+                throw new Error(generateErrorMessage(response_name, JSON.stringify(action) + ' is not an allowed action', appliance));
             }
         });
         if (appliance.additionalApplianceDetails != null){
             if (Buffer.byteLength(appliance.additionalApplianceDetails, 'utf8') > 5000){
                 throw new Error(generateErrorMessage(response_name,'additionalApplianceDetails must not exceed 5000 bytes',discoveredAppliance));
-            } 
+            }
         }
     });
 }
@@ -429,11 +432,11 @@ function validateControlResponse(request, response){
 
     This method validates the response to a Control (e.g. turn on/off, set temperatures, etc.) request, based on the API reference (starting from):
     https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#onoff-messages
-    */ 
+    */
 
     // Validate header
     validateResponseHeader(request, response);
-    
+
     var payload;
     var request_name = request.header.name;
     var response_name = response.header.name;
@@ -461,7 +464,7 @@ function validateControlResponse(request, response){
             throw new Error(generateErrorMessage(response_name, 'payload must be empty', payload))
         }
     }
-    // Validate color and color temperature control response payload 
+    // Validate color and color temperature control response payload
     if (isInArray(['SetColorConfirmation','SetColorTemperatureConfirmation','IncrementColorTemperatureConfirmation','DecrementColorTemperatureConfirmation'], response_name)){
         // Validate payload
         if (!('achievedState' in payload)){
@@ -525,7 +528,7 @@ function validateControlResponse(request, response){
             if (!(isInArray(VALID_TEMPERATURE_MODES, payload.temperatureMode.value))){
                 throw new Error(generateErrorMessage(response_name,'payload.temperatureMode.value is invalid', payload));
             }
-            
+
             // Validate payload.previousState
             ['targetTemperature','temperatureMode'].forEach( function(key){
                 if (!(key in payload.previousState)){
@@ -536,7 +539,7 @@ function validateControlResponse(request, response){
                 throw new Error(generateErrorMessage(response_name, 'payload.previousState.targetTemperature.value is missing', payload));
             }
             if (typeof payload.previousState.targetTemperature.value != "number"){
-                throw new Error(generateErrorMessage(response_name, 'payload.previousState.targetTemperature.value must be a number', payload)); 
+                throw new Error(generateErrorMessage(response_name, 'payload.previousState.targetTemperature.value must be a number', payload));
             }
             if (!('value' in payload.previousState.temperatureMode)){
                 throw new Error(generateErrorMessage(response_name, 'payload.previousState.temperatureMode.value is missing', payload));
@@ -553,8 +556,8 @@ function validateControlResponse(request, response){
         }
         if (!(payload['lockState'] in VALID_LOCK_STATES)){
             throw new Error(generateErrorMessage(response_name,'payload.lockState is invalid',payload));
-        } 
-    }    
+        }
+    }
     // Validate control error response payload
     if (response_name === 'ValueOutOfRangeError'){
         ['minimumValue','maximumValue'].forEach(function(key){
@@ -564,7 +567,7 @@ function validateControlResponse(request, response){
             if (typeof payload[key] != "number"){
                 throw new Error(generateErrorMessage(response_name, 'payload.' + key + ' must be a number', payload));
             }
-        });   
+        });
     }
     if (response_name === 'DependentServiceUnavailableError'){
         if (!('dependentServiceName' in payload)){
@@ -584,7 +587,7 @@ function validateControlResponse(request, response){
             }
             if (!(payload[key].match('^[a-zA-Z0-9äüöÄÜÖß]*$'))){
                 throw new Error(generateErrorMessage(response_name, 'payload.' + key + ' must be specifed in alphanumeric characters and spaces', payload));
-       
+
             }
         });
     }
@@ -654,7 +657,7 @@ function validateQueryResponse(request,response){
 
     This method validates the response to a Query (e.g. ambient temperature, lock state, etc.) request, based on the API reference (starting from):
     https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference#onoff-messages
-    """ 
+    """
     */
     // Validate header
     validateResponseHeader(request,response);
@@ -672,23 +675,23 @@ function validateQueryResponse(request,response){
     }
     if (!payload instanceof Object){
         throw new Error(generateErrorMessage(response_name,'payload must be an Array',payload));
-    } 
+    }
     // Validate non-empty control response payload
     if (isInArray(VALID_NON_EMPTY_PAYLOAD_RESPONSE_NAMES, response_name)){
         if (isEmpty(payload)){
             throw new Error(generateErrorMessage(response_name,'payload must not be empty',payload));
-        } 
+        }
     }
     else{
         if (!isEmpty(payload)){
             throw new Error(generateErrorMessage(response_name,'payload must be empty',payload));
-        } 
+        }
     }
     // Validate thermostat query response payload
     if (response_name === 'GetTemperatureReadingResponse'){
         if (!payload.temperatureReading){
             throw new Error(generateErrorMessage(response_name,'payload.temperatureReading is missing',payload));
-        } 
+        }
         if(!payload.temperatureReading.value){
              throw new Error(generateErrorMessage(response_name,'payload.temperatureReading.value is missing',payload));
         }
@@ -702,7 +705,7 @@ function validateQueryResponse(request,response){
         }
         if(!payload.temperatureMode.value){
              throw new Error(generateErrorMessage(response_name,'payload.temperatureMode.value is missing',payload));
-        } 
+        }
         if (!(isInArray(VALID_TEMPERATURE_MODES, payload.temperatureMode.value))){
             throw new Error(generateErrorMessage(response_name,'payload.temperatureMode.value is invalid',payload));
         }
@@ -712,7 +715,7 @@ function validateQueryResponse(request,response){
             if (optional_key in payload){
                 if (!payload[optional_key].value){
                     throw new Error(generateErrorMessage(response_name,'payload.' + optional_key + '.value is missing',payload));
-                } 
+                }
                 if (typeof payload[optional_key].value != 'number'){
                     throw new Error(generateErrorMessage(response_name,'payload.' + optional_key + '.value must be a number',payload));
                 }
@@ -724,7 +727,7 @@ function validateQueryResponse(request,response){
             }
             if (isEmpty(payload.temperatureMode.friendlyName)){
                 throw new Error(generateErrorMessage(response_name,'payload.temperatureMode.friendlyName must not be empty',payload));
-            }       
+            }
         }
     }
     // Validate lock query response payload
@@ -734,13 +737,13 @@ function validateQueryResponse(request,response){
         }
         if (!isInArray(VALID_LOCK_STATES, payload.lockState)){
             throw new Error(generateErrorMessage(response_name,'payload.lockState is invalid',payload));
-        } 
+        }
     }
     // Validate query error response payload
     if (response_name === 'UnableToGetValueError'){
         if (!payload.errorInfo){
             throw new Error(generateErrorMessage(response_name,'payload.errorInfo is missing',payload));
-        } 
+        }
         ['code','description'].forEach( function(required_key){
             if (!(required_key in payload.errorInfo)){
                 throw new Error(generateErrorMessage(response_name,'payload.errorInfo' + required_key + ' is missing',payload));
@@ -765,7 +768,7 @@ function validateResponseHeader(request, response){
     if (!isInArray(VALID_REQUEST_NAMES,request_name)){
         throw new Error(generateErrorMessage('Request', 'request name is invalid', request));
     }
-    
+
     // Validate if header exists
     if (isEmpty(header)){
         throw new Error(generateErrorMessage('Response', 'header is missing', response));
@@ -797,7 +800,7 @@ function validateResponseHeader(request, response){
         if (!isInArray(VALID_CONTROL_ERROR_RESPONSE_NAMES,header.name)){
             var correct_response_name = request_name.replace('Request','Confirmation');
             if (!(correct_response_name === header.name)){
-                throw new Error(generateErrorMessage('Control Response','header.name must be an error response name or ' + correct_response_name + ' for ' + request_name,header));   
+                throw new Error(generateErrorMessage('Control Response','header.name must be an error response name or ' + correct_response_name + ' for ' + request_name,header));
             }
         }
     }
@@ -811,7 +814,7 @@ function validateResponseHeader(request, response){
         if (!isInArray(VALID_CONTROL_ERROR_RESPONSE_NAMES,header.name)){
             var correct_response_name = request_name.replace('Request','Response');
             if (!(correct_response_name === header.name)){
-                throw new Error(generateErrorMessage('Query Response','header.name must be an error response name or ' + correct_response_name + ' for ' + request_name,header));   
+                throw new Error(generateErrorMessage('Query Response','header.name must be an error response name or ' + correct_response_name + ' for ' + request_name,header));
             }
         }
     }
@@ -825,7 +828,7 @@ function validateResponseHeader(request, response){
         correct_response_name = request_name.replace('Request','Response')
         if (header.name != correct_response_name){
             throw new Error(generateErrorMessage('System Response','header.name must be ' + correct_response_name + ' for ' + request_name,header));
-        } 
+        }
     }
 
     // Validate common header constraints
@@ -837,7 +840,7 @@ function validateResponseHeader(request, response){
     }
     if (isEmpty(header.messageId)){
         throw new Error(generateErrorMessage(header.name, 'header.messageId must not be empty', header));
-    } 
+    }
     if (header.messageId.length > 127){
         throw new Error(generateErrorMessage(header.name,'header.messageId must not exceed 128 characters', header));
     }
@@ -882,6 +885,6 @@ function isInArray(array, object) {
         return false;
     }
     return array.indexOf(object) > -1;
-} 
+}
 exports.validateContext = validateContext;
 exports.validateResponse = validateResponse;
