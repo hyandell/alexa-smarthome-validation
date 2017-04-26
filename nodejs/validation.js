@@ -25,6 +25,8 @@ The validations are based on the current public Alexa Smart Home API reference:
 https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference
 */
 
+"use strict";
+
 /*
  * Various constants used in validation.
  */
@@ -251,7 +253,7 @@ function validateResponse(request, response){
         throw new Error(generateErrorMessage('Request', 'request must not be empty', request));
     }
     try{
-        requestNamespace = request.header.namespace;
+        var requestNamespace = request.header.namespace;
     }
     catch(err){
         throw new Error(generateErrorMessage('Request','request is invalid',request));
@@ -420,8 +422,8 @@ function validateDiscoveryResponse(request, response){
             }
         });
         if (appliance.additionalApplianceDetails != null){
-            if (Buffer.byteLength(appliance.additionalApplianceDetails, 'utf8') > 5000){
-                throw new Error(generateErrorMessage(response_name,'additionalApplianceDetails must not exceed 5000 bytes',discoveredAppliance));
+            if (Buffer.byteLength(JSON.stringify(appliance.additionalApplianceDetails), 'utf8') > 5000){
+                throw new Error(generateErrorMessage(response_name,'additionalApplianceDetails must not exceed 5000 bytes', appliance));
             }
         }
     });
