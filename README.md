@@ -6,7 +6,9 @@ If a validation error is found, an exception is thrown by the Lambda function so
 
 We encourage all Smart Home API skill developers to use this package as a way to ensure that their Lambda responses are always correct from the Alexa point of view, thereby improving operational excellence. As we add or modify the Smart Home Skill API, we will also update this package.
 
-Please provide feedback as well. If we've made a mistake, or if you have any questions about specific validations, please submit an issue here.
+Please provide feedback as well. If we've made a mistake, or if you have any questions about specific validations, please submit an [Issue](https://github.com/alexa/alexa-smarthome-validation/issues) here.
+
+For more background on this project, as well as a deeper explanation about how this package works and the problems it solves, please read this [blog post](https://developer.amazon.com/blogs/alexa/post/eaf859ff-043d-48ad-b347-02f755bdae99/validating-smart-home-skill-api-responses).
 
 # How to Get Started
 
@@ -103,4 +105,4 @@ Please watch this repo as we will update these validation packages every time th
 
 # Feedback
 
-We welcome all feedback. Please create an issue in this repo if you have any questions, comments, or suggestions.
+We welcome all feedback. Please create an [Issue](https://github.com/alexa/alexa-smarthome-validation/issues) in this repo if you have any questions, comments, or suggestions.
