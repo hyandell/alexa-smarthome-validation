@@ -1,5 +1,7 @@
 # Alexa Smart Home Skill API Validation Package
 
+## THIS VALIDATION PACKAGE IS OUT OF DATE AND ONLY FOR SMART HOME API V2. FOR THE MOST CURRENT VALIDATION SCHEMA THAT WORKS WITH SMART HOME API V3, PLEASE GO TO https://github.com/alexa/alexa-smarthome/wiki/Validation-Schemas
+
 This package provides modules in Node.js and Python that can be easily used in Lambda functions of Alexa Smart Home API skills to validate the responses before sending back to Alexa. The validation rules are based on the current [Smart Home Skill API reference](https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/docs/smart-home-skill-api-reference).
 
 If a validation error is found, an exception is thrown by the Lambda function so that the skill developer can see those exceptions in CloudWatch and do something about them. Otherwise, although the Lambda function may have completed successfully, an error is sent back to Alexa, resulting in a failure for the Alexa user.
